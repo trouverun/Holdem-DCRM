@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+message Observation {
+    int32 player = 1;
+    bytes observations = 2;
+    bytes observation_counts = 3;
+    int32 shape = 4;
+    int32 sequence_length = 5;
+}
+
+message Regrets {
+    bytes action_regret = 1;
+    bytes bet_regret = 2;
+}
+
+message SampledData{
+    int32 player = 1;
+    bytes observations = 2;
+    bytes observation_counts = 3;
+    bytes action_data = 4;
+    bytes bet_data = 5;
+    int32 shape = 6;
+    int32 sequence_length = 7;
+}
+
+message Who {
+    int32 player = 1;
+}
+
+message Empty {
+
+}
+
+service Actor {
+    rpc GetRegrets(Observation) returns (Regrets);
+}
+
+service Learner {
+    rpc AddRegrets(SampledData) returns (Empty);
+    rpc AddStrategies(SampledData) returns (Empty);
+    rpc TrainRegrets(Who) returns (Empty);
+    rpc TrainStrategy(Empty) returns (Empty);
+}
