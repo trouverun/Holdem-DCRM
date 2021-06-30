@@ -1,8 +1,8 @@
 import logging
-from grpc import RL_pb2_grpc
 import torch
 import numpy as np
-from grpc.RL_pb2 import Empty
+from rpc import RL_pb2_grpc
+from rpc.RL_pb2 import Empty
 from collections import namedtuple
 from queue import Queue
 from threading import Lock, Thread
@@ -54,8 +54,8 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         Thread(target=self._reservoir_sample_strategy, args=()).start()
 
     def _load_initial_states(self):
-        torch.save(self.regret_net.state_dict(), 'states/regret_net_initial')
-        torch.save(self.regret_optimizer.state_dict(), 'states/regret_optimizer_initial')
+        torch.save(self.regret_net.state_dict(), '../states/regret_net_initial')
+        torch.save(self.regret_optimizer.state_dict(), '../states/regret_optimizer_initial')
 
         # Initialize regret networks
         for player in range(N_PLAYERS):

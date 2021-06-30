@@ -3,8 +3,8 @@ import grpc
 import faulthandler
 import numpy as np
 import logging
-from grpc.RL_pb2_grpc import ActorStub, LearnerStub
-from grpc.RL_pb2 import Observation, SampledData, Empty, Who
+from rpc.RL_pb2_grpc import ActorStub, LearnerStub
+from rpc.RL_pb2 import Observation, SampledData, Empty, Who
 from BatchedTraversal import BatchedTraversal
 from multiprocessing import Process, Queue
 from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS
@@ -84,7 +84,7 @@ def clear_queue_process(player, type, que):
 
 def deep_cfr(iterations, k, traversals_per_process, n_processes):
     loops_per_process = int(k / (traversals_per_process*n_processes))
-    options = [('grpc.max_send_message_length', 297834137)]
+    options = [('rpc.max_send_message_length', 297834137)]
     channel = grpc.insecure_channel('localhost:50051', options)
     stub_learner = LearnerStub(channel)
     inference_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(n_processes)]

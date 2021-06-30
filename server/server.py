@@ -1,7 +1,7 @@
 import time
 import grpc
 import logging
-from grpc import RL_pb2_grpc
+from rpc import RL_pb2_grpc
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -10,7 +10,7 @@ from LearnerServer import Learner
 
 
 def _run_actor_server(bind_address, gpu_lock):
-    options = [('grpc.max_receive_message_length', 297834137)]
+    options = [('rpc.max_receive_message_length', 297834137)]
     server = grpc.server(ThreadPoolExecutor(max_workers=16), options=options)
     RL_pb2_grpc.add_ActorServicer_to_server(Actor(gpu_lock), server)
     server.add_insecure_port(bind_address)
@@ -20,7 +20,7 @@ def _run_actor_server(bind_address, gpu_lock):
 
 
 def _run_learner_server(bind_address, gpu_lock):
-    options = [('grpc.max_receive_message_length', 297834137)]
+    options = [('rpc.max_receive_message_length', 297834137)]
     server = grpc.server(ThreadPoolExecutor(max_workers=16), options=options)
     RL_pb2_grpc.add_LearnerServicer_to_server(Learner(gpu_lock), server)
     server.add_insecure_port(bind_address)

@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import RL_pb2 as RL__pb2
+import rpc.RL_pb2 as RL__pb2
 
 
 class ActorStub(object):
@@ -12,7 +12,7 @@ class ActorStub(object):
         """Constructor.
 
         Args:
-            channel: A grpc.Channel.
+            channel: A rpc.Channel.
         """
         self.GetRegrets = channel.unary_unary(
                 '/Actor/GetRegrets',
@@ -136,7 +136,7 @@ class LearnerStub(object):
         """Constructor.
 
         Args:
-            channel: A grpc.Channel.
+            channel: A rpc.Channel.
         """
         self.AddRegrets = channel.unary_unary(
                 '/Learner/AddRegrets',
