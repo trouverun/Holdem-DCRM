@@ -3,8 +3,8 @@ import grpc
 import faulthandler
 import numpy as np
 import logging
-from RL_pb2_grpc import ActorStub, LearnerStub
-from RL_pb2 import Observation, SampledData, Empty, Who
+from grpc.RL_pb2_grpc import ActorStub, LearnerStub
+from grpc.RL_pb2 import Observation, SampledData, Empty, Who
 from BatchedTraversal import BatchedTraversal
 from multiprocessing import Process, Queue
 from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS

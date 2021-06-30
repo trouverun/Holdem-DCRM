@@ -1,8 +1,8 @@
 import logging
-import RL_pb2_grpc
+from grpc import RL_pb2_grpc
 import torch
 import numpy as np
-from RL_pb2 import Empty
+from grpc.RL_pb2 import Empty
 from collections import namedtuple
 from queue import Queue
 from threading import Lock, Thread

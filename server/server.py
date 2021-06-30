@@ -1,7 +1,7 @@
 import time
 import grpc
 import logging
-import RL_pb2_grpc
+from grpc import RL_pb2_grpc
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
