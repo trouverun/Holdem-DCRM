@@ -1,3 +1,4 @@
+import time
 import grpc
 import logging
 import RL_pb2_grpc
@@ -31,10 +32,11 @@ def _run_learner_server(bind_address, gpu_lock):
 def serve():
     processes = []
     gpu_lock = Lock()
-    processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50050", gpu_lock,)))
     processes.append(multiprocessing.Process(target=_run_learner_server, args=("localhost:50051", gpu_lock,)))
+    processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50050", gpu_lock,)))
     for p in processes:
         p.start()
+        time.sleep(2)
     for p in processes:
         p.join()
 

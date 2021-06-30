@@ -21,8 +21,8 @@ def send_player_batch(args):
         obs_proto = Observation(player=player, observations=observations_bytes, observation_counts=player_obs_count_bytes, shape=n_items,
                                 sequence_length=SEQUENCE_LENGTH)
         response = stub.GetRegrets(obs_proto)
-        action_regrets = np.frombuffer(response.action_regret, dtype=np.float32).reshape(n_items, N_ACTIONS)
-        bet_regrets = np.frombuffer(response.bet_regret, dtype=np.float32).reshape(n_items, N_BET_BUCKETS)
+        action_regrets = np.frombuffer(response.action_prediction, dtype=np.float32).reshape(n_items, N_ACTIONS)
+        bet_regrets = np.frombuffer(response.bet_prediction, dtype=np.float32).reshape(n_items, N_BET_BUCKETS)
         return action_regrets, bet_regrets
     return np.empty(0), np.empty(0)
 

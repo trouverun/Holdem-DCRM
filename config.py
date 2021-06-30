@@ -1,28 +1,41 @@
 import numpy as np
 
+# -------------------------------- LEARNING ENVIRONMENT --------------------------------
 RANDOM_SEED = 1
 N_PLAYERS = 2
 LOW_STACK_BBS = 50
 HIGH_STACK_BBS = 200
 HH_LOCATION = 'hands/'
 INVALID_ACTION_PENALTY = 0
+
+
+# --------------------------------------- GLOBAL ----------------------------------------
 OBS_SHAPE = 60
 SEQUENCE_LENGTH = 5
-
 N_ACTIONS = 4
-N_BET_BUCKETS = 8
-BET_BUCKETS = np.array([0.5, 0.75, 1, 1.5, 3])
-RESERVOIR_SIZE = int(1e6)
-CLIENT_SAMPLES_BATCH_SIZE = 1024*5
-MAX_INFERENCE_BATCH_SIZE = 1024*10
-MAX_TRAIN_BATCH_SIZE = 1024*10
+N_DEFAULT_BET_BUCKETS = 3
+N_USER_BET_BUCKETS = 5                                           # How many bet sizes are considered by the regret/strategy networks
+N_BET_BUCKETS = N_DEFAULT_BET_BUCKETS + N_USER_BET_BUCKETS
+BET_BUCKETS = np.array([0.5, 0.75, 1, 1.5, 3])                   # Which bet sizes are considered (specified as % of the pot)
 
-DATA_PROCESS_TIMEOUT = 0.005
-N_PROCESSES = 2
+
+# ---------------------------------------- CLIENT ----------------------------------------
+CLIENT_SAMPLES_BATCH_SIZE = 1024*5                               # Batch size for sampled regrets
+
+
+# ---------------------------------------- SERVER ----------------------------------------
+RESERVOIR_SIZE = int(1e6)                                        # How many samples are stored in each reservoir
+DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
+MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies
+MAX_TRAIN_BATCH_SIZE = 1024*10                                   # Batch size when training networks
+STATES_LOCATION = ''
+RESERVOIRS_LOCATION = ''
+
+
+# --------------------------------- NETWORKS & TRAINING ----------------------------------
+RNN_HIDDENS = 256
 N_EPOCHS = 25
 LEARNING_RATE = 0.05
 WEIGHT_DECAY = 0.001
 PATIENCE = 5
 eps = 1.05
-
-RNN_HIDDENS = 256

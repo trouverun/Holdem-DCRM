@@ -8,12 +8,12 @@ message Observation {
     int32 sequence_length = 5;
 }
 
-message Regrets {
-    bytes action_regret = 1;
-    bytes bet_regret = 2;
+message Prediction {
+    bytes action_prediction = 1;
+    bytes bet_prediction = 2;
 }
 
-message SampledData{
+message SampledData {
     int32 player = 1;
     bytes observations = 2;
     bytes observation_counts = 3;
@@ -27,12 +27,19 @@ message Who {
     int32 player = 1;
 }
 
+message Selection {
+    int32 player = 1;
+    int32 strategy_version = 2;
+}
+
 message Empty {
 
 }
 
 service Actor {
-    rpc GetRegrets(Observation) returns (Regrets);
+    rpc GetRegrets(Observation) returns (Prediction);
+    rpc GetStrategies(Observation) returns (Prediction);
+    rpc SetStrategy(Selection) returns (Empty);
 }
 
 service Learner {

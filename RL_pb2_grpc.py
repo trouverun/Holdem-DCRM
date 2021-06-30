@@ -17,7 +17,17 @@ class ActorStub(object):
         self.GetRegrets = channel.unary_unary(
                 '/Actor/GetRegrets',
                 request_serializer=RL__pb2.Observation.SerializeToString,
-                response_deserializer=RL__pb2.Regrets.FromString,
+                response_deserializer=RL__pb2.Prediction.FromString,
+                )
+        self.GetStrategies = channel.unary_unary(
+                '/Actor/GetStrategies',
+                request_serializer=RL__pb2.Observation.SerializeToString,
+                response_deserializer=RL__pb2.Prediction.FromString,
+                )
+        self.SetStrategies = channel.unary_unary(
+                '/Actor/SetStrategies',
+                request_serializer=RL__pb2.Selection.SerializeToString,
+                response_deserializer=RL__pb2.Empty.FromString,
                 )
 
 
@@ -30,13 +40,35 @@ class ActorServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetStrategies(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SetStrategies(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ActorServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetRegrets': grpc.unary_unary_rpc_method_handler(
                     servicer.GetRegrets,
                     request_deserializer=RL__pb2.Observation.FromString,
-                    response_serializer=RL__pb2.Regrets.SerializeToString,
+                    response_serializer=RL__pb2.Prediction.SerializeToString,
+            ),
+            'GetStrategies': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetStrategies,
+                    request_deserializer=RL__pb2.Observation.FromString,
+                    response_serializer=RL__pb2.Prediction.SerializeToString,
+            ),
+            'SetStrategies': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetStrategies,
+                    request_deserializer=RL__pb2.Selection.FromString,
+                    response_serializer=RL__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -54,16 +86,47 @@ class Actor(object):
             options=(),
             channel_credentials=None,
             call_credentials=None,
-            insecure=False,
             compression=None,
             wait_for_ready=None,
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/Actor/GetRegrets',
             RL__pb2.Observation.SerializeToString,
-            RL__pb2.Regrets.FromString,
+            RL__pb2.Prediction.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetStrategies(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Actor/GetStrategies',
+            RL__pb2.Observation.SerializeToString,
+            RL__pb2.Prediction.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SetStrategies(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Actor/SetStrategies',
+            RL__pb2.Selection.SerializeToString,
+            RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
 class LearnerStub(object):
@@ -163,7 +226,6 @@ class Learner(object):
             options=(),
             channel_credentials=None,
             call_credentials=None,
-            insecure=False,
             compression=None,
             wait_for_ready=None,
             timeout=None,
@@ -172,7 +234,7 @@ class Learner(object):
             RL__pb2.SampledData.SerializeToString,
             RL__pb2.Empty.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def AddStrategies(request,
@@ -180,7 +242,6 @@ class Learner(object):
             options=(),
             channel_credentials=None,
             call_credentials=None,
-            insecure=False,
             compression=None,
             wait_for_ready=None,
             timeout=None,
@@ -189,7 +250,7 @@ class Learner(object):
             RL__pb2.SampledData.SerializeToString,
             RL__pb2.Empty.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def TrainRegrets(request,
@@ -197,7 +258,6 @@ class Learner(object):
             options=(),
             channel_credentials=None,
             call_credentials=None,
-            insecure=False,
             compression=None,
             wait_for_ready=None,
             timeout=None,
@@ -206,7 +266,7 @@ class Learner(object):
             RL__pb2.Who.SerializeToString,
             RL__pb2.Empty.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def TrainStrategy(request,
@@ -214,7 +274,6 @@ class Learner(object):
             options=(),
             channel_credentials=None,
             call_credentials=None,
-            insecure=False,
             compression=None,
             wait_for_ready=None,
             timeout=None,
@@ -223,4 +282,4 @@ class Learner(object):
             RL__pb2.Empty.SerializeToString,
             RL__pb2.Empty.FromString,
             options, channel_credentials,
-            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+            call_credentials, compression, wait_for_ready, timeout, metadata)

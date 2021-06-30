@@ -54,8 +54,8 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         Thread(target=self._reservoir_sample_strategy, args=()).start()
 
     def _load_initial_states(self):
-        torch.save(self.regret_net.state_dict(), '../states/regret_net_initial')
-        torch.save(self.regret_optimizer.state_dict(), '../states/regret_optimizer_initial')
+        torch.save(self.regret_net.state_dict(), 'states/regret_net_initial')
+        torch.save(self.regret_optimizer.state_dict(), 'states/regret_optimizer_initial')
 
         # Initialize regret networks
         for player in range(N_PLAYERS):
@@ -87,7 +87,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 logging.info("Unable to load strategy network or optimizer from memory, starting from scratch")
                 self.iteration = 0
             torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.iteration)
-            torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
+            torch.save(self.strategy_optimizer.state_dict(), 'states/strategy_optimizer')
 
     def _reservoir_sample_regrets(self, player):
         logging.info("Started regret reservoir sampling thread for player %d", player)
@@ -194,7 +194,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                             mapping=torch.sigmoid)
         self.iteration += 1
         torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.iteration)
-        torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
+        torch.save(self.strategy_optimizer.state_dict(), 'states/strategy_optimizer')
         self.gpu_lock.release()
         np.save('../reservoirs/strategy_reservoir_obs.npy', self.strategy_observations)
         np.save('../reservoirs/strategy_reservoir_obs_count.npy', self.strategy_observation_counts)
