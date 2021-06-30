@@ -90,7 +90,7 @@ class Actor(RL_pb2_grpc.ActorServicer):
         current_batch = self.current_batch_ids[player]
         if len(observations) + self.current_batch_sizes[player][current_batch] >= MAX_INFERENCE_BATCH_SIZE:
             consumed = 0
-            remaining = len(current_batch)
+            remaining = len(observations)
             space_left = MAX_INFERENCE_BATCH_SIZE - self.current_batch_sizes[player][current_batch]
             while remaining >= space_left:
                 batch_ids.append(self.current_batch_ids[player])
@@ -150,8 +150,8 @@ class Actor(RL_pb2_grpc.ActorServicer):
         for batch_id, indices in zip(batch_ids, indices):
             self.batch_ready_events[player][batch_id].wait(timeout=None)
             batch_action_regrets, batch_bet_regrets = self._retrieve_batch_result(player, batch_id, indices)
-            action_regrets.append(batch_action_regrets)
-            bet_regrets.append(batch_bet_regrets)
-        action_bytes = np.ndarray.tobytes(np.asarray(action_regrets).squeeze(0))
-        bet_bytes = np.ndarray.tobytes(np.asarray(bet_regrets).squeeze(0))
+            action_regrets.extend(batch_action_regrets)
+            bet_regrets.extend(batch_bet_regrets)
+        action_bytes = np.ndarray.tobytes(np.asarray(action_regrets))
+        bet_bytes = np.ndarray.tobytes(np.asarray(bet_regrets))
         return Regrets(action_regret=action_bytes, bet_regret=bet_bytes)

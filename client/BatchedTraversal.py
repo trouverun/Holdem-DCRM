@@ -67,7 +67,7 @@ class BatchedTraversal:
                     action_regrets = parent.rewards_action - expected_reward
                     bet_expected_reward = parent.rewards_action[2]
                     bet_regrets = parent.rewards_bet - bet_expected_reward
-                    self.regret_que.put((parent.observation_history.copy(), parent.observation_count, action_regrets.copy(), bet_regrets.copy()), timeout=5)
+                    self.regret_que.put((parent.observation_history, parent.observation_count, action_regrets, bet_regrets))
                     self._propagate_reward(parent, expected_reward)
                     self.all_nodes.pop(node.id)
                 break
@@ -143,7 +143,7 @@ class BatchedTraversal:
             new_node = self.all_nodes[self.node_n]
             obs, obs_count, reward, done = new_node.step(previous_observation, parent_is_traverser, action_dont_care)
             if not parent_is_traverser:
-                self.strategy_que.put((node.observation_history.copy(), obs_count, node.pi_action.copy(), node.pi_bet.copy()), timeout=5)
+                self.strategy_que.put((node.observation_history, obs_count, node.pi_action, node.pi_bet))
             if not done:
                 self.active_nodes.add(self.node_n)
                 observations[new_node.acting_player].append(obs)

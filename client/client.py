@@ -1,12 +1,12 @@
 import argparse
 import grpc
+import faulthandler
 import numpy as np
 import logging
 from RL_pb2_grpc import ActorStub, LearnerStub
-from RL_pb2 import Observation, SampledData, Empty
+from RL_pb2 import Observation, SampledData, Empty, Who
 from BatchedTraversal import BatchedTraversal
-from multiprocessing import Process
-from queue import Queue
+from multiprocessing import Process, Queue
 from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS
 from concurrent.futures import ThreadPoolExecutor
 
@@ -50,6 +50,7 @@ def traverse_process(n, channel, traversals_per_process, loops_per_process, trav
 
 
 def clear_queue_process(player, type, que):
+    logging.info("Started clear queue process for player %d" % player)
     channel = grpc.insecure_channel('localhost:50051')
     stub = LearnerStub(channel)
     observations = []
@@ -97,6 +98,7 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
     for p in que_processors:
         p.start()
 
+    process_count = 0
     for iteration in range(iterations):
         for player in range(N_PLAYERS):
             processes = [
@@ -105,11 +107,16 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
                 for n in range(n_processes)
             ]
             for p in processes:
+                process_count += 1
+                logging.debug("starting process %d" % process_count)
                 p.start()
             for p in processes:
+                process_count -= 1
+                logging.debug("joining process %d" % process_count)
                 p.join()
+            # traverse_process(0,inference_channels[0], traversals_per_process, k, player, regret_ques[player], strategy_ques[player])
             print("Training regrets for player %d" % player)
-            stub_learner.TrainRegrets(Empty())
+            stub_learner.TrainRegrets(Who(player=player))
         print("Training strategy for iteration %d" % iteration)
         stub_learner.TrainStrategy(Empty())
 
@@ -121,6 +128,8 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
 
 
 if __name__ == "__main__":
+    faulthandler.enable()
+    logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser()
     parser.add_argument('iterations', type=int)
     parser.add_argument('k', type=int)
