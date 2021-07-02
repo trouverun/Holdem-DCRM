@@ -5,6 +5,10 @@ from config import OBS_SHAPE, N_BET_BUCKETS, N_ACTIONS, RNN_HIDDENS, BET_BUCKETS
 from math import inf
 
 
+ACTIONS_START = VALID_ACTIONS[0]
+ACTIONS_END = VALID_ACTIONS[-1]
+
+
 class RegretNetwork(torch.nn.Module):
     def __init__(self, device, bet_buckets=N_BET_BUCKETS):
         super().__init__()
@@ -15,8 +19,7 @@ class RegretNetwork(torch.nn.Module):
         self.bet_regret = torch.nn.Linear(RNN_HIDDENS, self.bet_buckets)
 
     def forward(self, x, starts):
-        obses = x[torch.arange(0, x.shape[0]), starts - 1, :]
-        invalid_actions = x[torch.arange(0, x.shape[0]), starts - 1, 3:7] == 0
+        invalid_actions = x[torch.arange(0, x.shape[0]), starts - 1, ACTIONS_START:ACTIONS_END+1] == 0
         valid_bet_low = x[torch.arange(0, x.shape[0]), starts - 1, VALID_BET_LOW]
         valid_bet_low_r = valid_bet_low.unsqueeze(0).T.repeat((1, self.bet_buckets))
         valid_bet_high = x[torch.arange(0, x.shape[0]), starts - 1, VALID_BET_HIGH]
@@ -40,12 +43,6 @@ class RegretNetwork(torch.nn.Module):
         bet_regret = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
                                  torch.zeros_like(bet_regret), bet_regret)
 
-        print(obses)
-        print()
-        print(action_regret)
-        print()
-        print(bet_regret)
-
         return action_regret, bet_regret
 
 
@@ -59,7 +56,7 @@ class StrategyNetwork(torch.nn.Module):
         self.bet_regret = torch.nn.Linear(RNN_HIDDENS, self.bet_buckets)
 
     def forward(self, x, starts):
-        invalid_actions = x[torch.arange(0, x.shape[0]), starts - 1, VALID_ACTIONS] == 0
+        invalid_actions = x[torch.arange(0, x.shape[0]), starts - 1, ACTIONS_START:ACTIONS_END+1] == 0
         valid_bet_low = x[torch.arange(0, x.shape[0]), starts - 1, VALID_BET_LOW]
         valid_bet_low_r = valid_bet_low.unsqueeze(0).T.repeat((1, self.bet_buckets))
         valid_bet_high = x[torch.arange(0, x.shape[0]), starts - 1, VALID_BET_HIGH]
@@ -78,12 +75,16 @@ class StrategyNetwork(torch.nn.Module):
         denom_a = action_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
         action_logits = torch.where(invalid_actions, -inf*torch.ones_like(action_logits), action_logits.abs()/denom_a)
 
-        betsize_array = torch.tensor(BET_BUCKETS) * pot_sizes
+        betsize_array = torch.tensor(BET_BUCKETS)
         betsize_array = betsize_array.repeat((x.shape[0], 1)).to(self.device)
+        betsize_array = betsize_array * pot_sizes[:, None]
         betsize_array = torch.cat([valid_bet_low.unsqueeze(1), valid_bet_mid.unsqueeze(1), valid_bet_high.unsqueeze(1), betsize_array],
                                   dim=1)
         bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
                                  torch.zeros_like(bet_logits), bet_logits)
+        denom_b = bet_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
+        bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
+                                 -inf * torch.ones_like(bet_logits), bet_logits.abs() / denom_b)
         all_infs = torch.all(bet_logits == -inf, dim=1).unsqueeze(0).T.repeat((1, self.bet_buckets))
         bet_logits = torch.where(all_infs, torch.zeros_like(bet_logits), bet_logits)
 

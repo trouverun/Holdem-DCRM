@@ -63,10 +63,19 @@ class BatchedTraversal:
                     parent.rewards_action[int(node.action_type)] = reward
                     parent.n_rewards_action -= 1
                 if parent.n_rewards_action == 0:
+                    obs = parent.observation_history[parent.observation_count-1]
+                    valid_actions = obs[indices.VALID_ACTIONS]
+                    min_bet = obs[indices.VALID_BET_LOW]
+                    max_bet = obs[indices.VALID_BET_HIGH]
+                    bet_sizes = np.concatenate(
+                        [np.array([min_bet, (min_bet + max_bet) / 2, max_bet]), BET_BUCKETS * obs[indices.POT_SIZE]])
+                    invalid_bets = np.logical_or(min_bet > bet_sizes, bet_sizes > max_bet)
                     expected_reward = (parent.pi_action * parent.rewards_action).sum()
                     action_regrets = parent.rewards_action - expected_reward
+                    action_regrets[np.argwhere(valid_actions == 0)] = 0
                     bet_expected_reward = parent.rewards_action[2]
                     bet_regrets = parent.rewards_bet - bet_expected_reward
+                    bet_regrets[invalid_bets] = 0
                     self.regret_que.put((parent.observation_history, parent.observation_count, action_regrets, bet_regrets))
                     self._propagate_reward(parent, expected_reward)
                     self.all_nodes.pop(node.id)

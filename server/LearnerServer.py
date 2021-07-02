@@ -237,7 +237,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                     batch_indices = validation_indices[valid_batch_start_i:batch_end_i]
                     valid_batch_start_i += MAX_TRAIN_BATCH_SIZE
                     x = torch.from_numpy(obs[batch_indices, :, :]).type(torch.FloatTensor).to(self.device)
-                    x_counts = torch.from_numpy(obs_counts[batch_indices]).type(torch.IntTensor).squeeze(1)
+                    x_counts = torch.from_numpy(obs_counts[batch_indices]).type(torch.LongTensor).squeeze(1)
                     y_action = torch.from_numpy(actions[batch_indices]).type(torch.FloatTensor).to(self.device)
                     y_bet = torch.from_numpy(bets[batch_indices]).type(torch.FloatTensor).to(self.device)
                     action_pred, bet_pred = net(x, x_counts)
