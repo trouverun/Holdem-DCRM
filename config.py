@@ -20,22 +20,22 @@ BET_BUCKETS = np.array([0.5, 0.75, 1, 1.5, 3])                   # Which bet siz
 
 
 # ---------------------------------------- CLIENT ----------------------------------------
-CLIENT_SAMPLES_BATCH_SIZE = 1024*5                               # Batch size for sampled regrets
+CLIENT_SAMPLES_BATCH_SIZE = 1024*2                               # Batch size for sampled regrets
 
 
 # ---------------------------------------- SERVER ----------------------------------------
 RESERVOIR_SIZE = int(1e6)                                        # How many samples are stored in each reservoir
-DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
-MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies
+DATA_PROCESS_TIMEOUT = 0.05                                     # Timeout duration before a batch is processed even if it is not full
+MAX_INFERENCE_BATCH_SIZE = 1#1024*10                               # Batch size for inferring regrets or strategies
 MAX_TRAIN_BATCH_SIZE = 1024*10                                   # Batch size when training networks
 STATES_LOCATION = ''
 RESERVOIRS_LOCATION = ''
 
 
 # --------------------------------- NETWORKS & TRAINING ----------------------------------
-RNN_HIDDENS = 256
-N_EPOCHS = 25
-LEARNING_RATE = 0.05
+RNN_HIDDENS = 2048
+N_EPOCHS = 1000
+LEARNING_RATE = 0.01
 WEIGHT_DECAY = 0.001
 PATIENCE = 5
-eps = 1.05
+improvement_eps = 1.05

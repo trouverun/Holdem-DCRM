@@ -67,12 +67,12 @@ class Actor(RL_pb2_grpc.ActorServicer):
                 counts.append(item.count)
             self.gpu_lock.acquire()
             observations = torch.from_numpy(np.asarray(observations)).type(torch.FloatTensor).to(self.device)
-            counts = torch.from_numpy(np.asarray(counts)).type(torch.IntTensor)
+            counts = torch.from_numpy(np.asarray(counts)).type(torch.LongTensor)
             if type == REGRET:
-                self.regret_net.load_state_dict(torch.load('../states/regret_player_%d' % player))
+                self.regret_net.load_state_dict(torch.load('../states/regret_net_player_%d' % player))
                 action_predictions, bet_predictions = self.regret_net(observations, counts)
             else:
-                self.strategy_net.load_state_dict(torch.load('../states/strategy_%d' % self.strategy_versions[player]))
+                self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.strategy_versions[player]))
                 action_predictions, bet_predictions = self.strategy_net(observations, counts)
                 action_predictions = torch.sigmoid(action_predictions)
                 bet_predictions = torch.sigmoid(bet_predictions)
@@ -132,7 +132,7 @@ class Actor(RL_pb2_grpc.ActorServicer):
 
     def _retrieve_batch_result(self, player, batch_id, indices, type):
         self.player_locks[type][player].acquire()
-        self.batch_read_counts[player][batch_id] += len(indices)
+        self.batch_read_counts[type][player][batch_id] += len(indices)
         action_regrets = self.action_predictions[type][player][batch_id][indices]
         bet_regrets = self.bet_predictions[type][player][batch_id][indices]
         if self.batch_read_counts[type][player][batch_id] == self.current_batch_sizes[type][player][batch_id]:

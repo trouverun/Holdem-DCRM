@@ -16,3 +16,4 @@ client/client.py number_of_CFR_iterations k traversals_per_process n_process
 ### TODO:
 * [ ] Implement evaluator module which evaluates performance against older versions
 * [ ] Support distributed training and inference with multiple agent and learner machines
+* [ ] 

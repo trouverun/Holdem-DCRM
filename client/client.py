@@ -3,6 +3,7 @@ import grpc
 import faulthandler
 import numpy as np
 import logging
+import time
 from rpc.RL_pb2_grpc import ActorStub, LearnerStub
 from rpc.RL_pb2 import Observation, SampledData, Empty, Who
 from BatchedTraversal import BatchedTraversal
@@ -51,7 +52,8 @@ def traverse_process(n, channel, traversals_per_process, loops_per_process, trav
 
 def clear_queue_process(player, type, que):
     logging.info("Started clear queue process for player %d" % player)
-    channel = grpc.insecure_channel('localhost:50051')
+    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
+    channel = grpc.insecure_channel('localhost:50051', options)
     stub = LearnerStub(channel)
     observations = []
     counts = []
@@ -84,7 +86,7 @@ def clear_queue_process(player, type, que):
 
 def deep_cfr(iterations, k, traversals_per_process, n_processes):
     loops_per_process = int(k / (traversals_per_process*n_processes))
-    options = [('rpc.max_send_message_length', 297834137)]
+    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
     channel = grpc.insecure_channel('localhost:50051', options)
     stub_learner = LearnerStub(channel)
     inference_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(n_processes)]
@@ -100,6 +102,7 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
 
     process_count = 0
     for iteration in range(iterations):
+        start = time.time()
         for player in range(N_PLAYERS):
             processes = [
                 Process(target=traverse_process, args=(n, inference_channels[n], traversals_per_process, loops_per_process, player,
@@ -111,14 +114,16 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
                 logging.debug("starting process %d" % process_count)
                 p.start()
             for p in processes:
-                process_count -= 1
-                logging.debug("joining process %d" % process_count)
                 p.join()
+                process_count -= 1
+                logging.debug("joined process %d" % process_count)
             # traverse_process(0,inference_channels[0], traversals_per_process, k, player, regret_ques[player], strategy_ques[player])
             print("Training regrets for player %d" % player)
             stub_learner.TrainRegrets(Who(player=player))
         print("Training strategy for iteration %d" % iteration)
         stub_learner.TrainStrategy(Empty())
+        end = time.time()
+        logging.info("Run took %f" % (end - start))
 
     # Close the queues
     for que in regret_ques + strategy_ques:
@@ -128,7 +133,7 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
 
 
 if __name__ == "__main__":
-    faulthandler.enable()
+    #faulthandler.enable()
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser()
     parser.add_argument('iterations', type=int)

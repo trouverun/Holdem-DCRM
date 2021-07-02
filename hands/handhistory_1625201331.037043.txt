@@ -1,0 +1,26 @@
+PokerStars Hand #2292465: Hold'em No Limit ($2.50/$5.00 USD) - 2021/7/2 7:48:51 ET
+Table 'Wempe III' 6-max Seat #2 is the button
+Seat 1: player_2 ($460.00 in chips)
+Seat 2: player_1 ($315.00 in chips)
+player_2: posts small blind $2.50
+player_1: posts big blind $5.00
+*** HOLE CARDS ***
+Dealt to player_2 [7d 3s]
+Dealt to player_1 [Ts 2d]
+player_2: calls $2.50
+*** FLOP *** [3h 5d Jh]
+player_2: checks
+player_1: checks
+*** TURN *** [3h 5d Jh] [9d]
+player_2: checks
+player_1: checks
+*** RIVER *** [3h 5d Jh 9d] [Tc]
+player_2: checks
+player_1: checks
+*** SHOW DOWN ***
+player_2: shows [7d 3s] (a pair of Threes)
+player_1: shows [Ts 2d] (a pair of Tens)
+player_1 collected $10.00 from pot
+*** SUMMARY ***
+Total pot $10.00 | Rake $0.00
+Board [3h 5d Jh 9d Tc]

@@ -1,8 +1,8 @@
 import copy
 import numpy as np
-import pokergym.obs_indices as indices
-from pokergym.table import Table
-from pokergym.common import Action, PlayerAction, action_list
+import pokerenv.obs_indices as indices
+from pokerenv.table import Table
+from pokerenv.common import Action, PlayerAction, action_list
 from config import N_PLAYERS, LOW_STACK_BBS, HIGH_STACK_BBS, HH_LOCATION, INVALID_ACTION_PENALTY, OBS_SHAPE, SEQUENCE_LENGTH, \
     N_BET_BUCKETS, BET_BUCKETS, N_ACTIONS
 
@@ -124,7 +124,7 @@ class BatchedTraversal:
             previous_observation = node.observation_history[node.observation_count-1]
             acting_player = previous_observation[indices.ACTING_PLAYER]
             # If the hand is over, we are only feeding junk actions to get the end of hand rewards back for each player
-            action_dont_care = previous_observation[indices.ACTION_DONT_CARE]
+            action_dont_care = previous_observation[indices.DELAYED_REWARD]
             node.add_regrets(previous_observation, ar, br)
             parent_is_traverser = False
             if acting_player == self.traverser:
@@ -190,16 +190,24 @@ class Node:
         bet_sizes = np.concatenate(
             [np.array([min_bet, (min_bet + max_bet) / 2, max_bet]), BET_BUCKETS * previous_obs[indices.POT_SIZE]])
         invalid_bets = np.logical_or(min_bet > bet_sizes, bet_sizes > max_bet)
+
+        # If all probabilities are negative select the least negative entry deterministically like in the paper
+        if np.count_nonzero(action_regrets >= 0) == 0:
+            chosen_i = action_regrets.argmax()
+            action_regrets[chosen_i] = 1
         action_regrets = np.maximum(action_regrets, np.zeros_like(action_regrets), dtype=np.float32)
         # Mask invalid actions and make new probabilities sum to 1
-        action_regrets[np.argwhere(valid_actions == 0)] = 0
         if np.count_nonzero(action_regrets) == 0:
             self.pi_action[np.argwhere(valid_actions == 1)] = 1 / np.count_nonzero(valid_actions)
         else:
             self.pi_action = action_regrets / action_regrets.sum()
+
+        # If all probabilities are negative select the least negative entry deterministically like in the paper
+        if np.count_nonzero(bet_regrets >= 0) == 0:
+            chosen_i = bet_regrets.argmax()
+            bet_regrets[chosen_i] = 1
         bet_regrets = np.maximum(bet_regrets, np.zeros_like(bet_regrets), dtype=np.float32)
         # Mask invalid bets and make new probabilities sum to 1
-        bet_regrets[invalid_bets] = 0
         if np.count_nonzero(bet_regrets) == 0:
             self.pi_bet[np.logical_not(invalid_bets)] = 1 / np.count_nonzero(np.logical_not(invalid_bets))
         else:
@@ -227,7 +235,7 @@ class Node:
                     bet_size = bet_sizes[self.bet_bucket][0]
                 table_action = Action(self.action_type, bet_size)
         obs, reward, env_done, info = self.env.step(table_action)
-        done = env_done or ((obs[indices.HAND_ENDED] or action_dont_care) and parent_is_traverser)
+        done = env_done or ((obs[indices.HAND_IS_OVER] or action_dont_care) and parent_is_traverser)
         if not done:
             # Construct observation history for this node
             self.observation_history = np.zeros([SEQUENCE_LENGTH, OBS_SHAPE], dtype=np.float32)
