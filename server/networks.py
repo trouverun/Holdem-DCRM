@@ -91,13 +91,7 @@ class StrategyNetwork(torch.nn.Module):
         all_infs = torch.all(bet_logits == -inf, dim=1).unsqueeze(0).T.repeat((1, self.bet_buckets))
         bet_logits = torch.where(all_infs, torch.zeros_like(bet_logits), bet_logits)
 
-        print(action_logits)
-        print(bet_logits)
-
         action_dist = softmax(action_logits, dim=1)
         bet_dist = softmax(bet_logits, dim=1)
-
-        print(action_dist)
-        print(bet_dist)
 
         return action_dist, bet_dist

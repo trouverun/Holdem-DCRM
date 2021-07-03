@@ -37,7 +37,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         self.regret_optimizer = torch.optim.Adam(self.regret_net.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         self.regret_loss = torch.nn.MSELoss()
         self.strategy_net = StrategyNetwork(self.device).to(self.device)
-        self.strategy_optimizer = torch.optim.Adam(self.regret_net.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        self.strategy_optimizer = torch.optim.Adam(self.strategy_net.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
         self.strategy_loss = torch.nn.MSELoss()
         try:
             info = np.load('../states/info.npy')
@@ -247,7 +247,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                         break
             running_train_loss /= len(train_indices)
             running_validation_loss /= len(validation_indices)
-            logging.info("Epoch %d: train_loss: %f, valid_loss: %f" % (epoch, running_train_loss, running_validation_loss))
+            logging.info("Epoch %d: train_loss: %.20f, valid_loss: %.20f" % (epoch, running_train_loss, running_validation_loss))
             if best is None:
                 best = running_validation_loss
             else:
