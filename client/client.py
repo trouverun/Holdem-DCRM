@@ -12,6 +12,7 @@ from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE
 from concurrent.futures import ThreadPoolExecutor
 
 
+# Send a batch of observations to an inference server and returns the regrets
 def send_player_batch(args):
     channel, player, observations, observation_counts = args
     n_items = len(observations)
@@ -28,7 +29,8 @@ def send_player_batch(args):
     return np.empty(0), np.empty(0)
 
 
-def traverse_process(n, channel, traversals_per_process, loops_per_process, traverser, regret_que, strategy_que):
+# Does a specified amount of game traversals, sampling regrets and global strategies in the process
+def traverse_process(channel, traversals_per_process, loops_per_process, traverser, regret_que, strategy_que):
     bt = BatchedTraversal(traversals_per_process, traverser, regret_que, strategy_que)
     for _ in range(loops_per_process):
         obs, obs_counts, mapping = bt.reset()
@@ -50,6 +52,7 @@ def traverse_process(n, channel, traversals_per_process, loops_per_process, trav
             obs, obs_counts, mapping = bt.step(action_regrets, bet_regrets, mapping)
 
 
+# Clears the regret/strategy queue by sending the items to a learner server which adds them to reservoirs
 def clear_queue_process(player, type, que):
     logging.info("Started clear queue process for player %d" % player)
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
@@ -117,13 +120,12 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
                 p.join()
                 process_count -= 1
                 logging.debug("joined process %d" % process_count)
-            # traverse_process(0,inference_channels[0], traversals_per_process, k, player, regret_ques[player], strategy_ques[player])
-            print("Training regrets for player %d" % player)
+            logging.info("Training regrets for player %d" % player)
             stub_learner.TrainRegrets(Who(player=player))
-        print("Training strategy for iteration %d" % iteration)
+        logging.info("Training strategy for iteration %d" % iteration)
         stub_learner.TrainStrategy(Empty())
         end = time.time()
-        logging.info("Run took %f" % (end - start))
+        logging.info("One iteration took %fs" % (end - start))
 
     # Close the queues
     for que in regret_ques + strategy_ques:

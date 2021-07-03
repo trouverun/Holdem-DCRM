@@ -18,22 +18,22 @@ types = ['regret', 'strategy']
 class Actor(RL_pb2_grpc.ActorServicer):
     def __init__(self, gpu_lock):
         self.gpu_lock = gpu_lock
-        # ------------------------------ Regret ------------------------------
-        self.player_locks = [[Lock() for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.current_batch_ids = [np.zeros(N_PLAYERS, dtype=np.int32) for _ in range(2)]
-        self.current_batch_sizes = [[[0] for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.observations_que = [[Queue() for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.data_added_events = [[[Event()] for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.batch_full_events = [[[Event()] for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.batch_ready_events = [[[Event()] for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.batch_read_counts = [[[0] for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.action_predictions = [[dict() for _ in range(N_PLAYERS)] for _ in range(2)]
-        self.bet_predictions = [[dict() for _ in range(N_PLAYERS)] for _ in range(2)]
-        # ------------------------------ Strategy -----------------------------
+        # Containers for all data required for regret and strategy inference
+        self.player_locks = [[Lock() for _ in range(N_PLAYERS)] for type in types]
+        self.current_batch_ids = [np.zeros(N_PLAYERS, dtype=np.int32) for type in types]
+        self.current_batch_sizes = [[[0] for _ in range(N_PLAYERS)] for type in types]
+        self.observations_que = [[Queue() for _ in range(N_PLAYERS)] for type in types]
+        self.data_added_events = [[[Event()] for _ in range(N_PLAYERS)] for type in types]
+        self.batch_full_events = [[[Event()] for _ in range(N_PLAYERS)] for type in types]
+        self.batch_ready_events = [[[Event()] for _ in range(N_PLAYERS)] for type in types]
+        self.batch_read_counts = [[[0] for _ in range(N_PLAYERS)] for type in types]
+        self.action_predictions = [[dict() for _ in range(N_PLAYERS)] for type in types]
+        self.bet_predictions = [[dict() for _ in range(N_PLAYERS)] for type in types]
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         logging.info('Pytorch using device %s' % self.device)
         self.regret_net = RegretNetwork(self.device).to(self.device)
         self.strategy_net = StrategyNetwork(self.device).to(self.device)
+        # Which version of the strategy network is used for inference (for each player)
         self.strategy_versions = np.zeros(N_PLAYERS)
         for i in range(N_PLAYERS):
             Thread(target=self._process_batch_thread, args=(i, REGRET)).start()

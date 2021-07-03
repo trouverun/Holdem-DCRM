@@ -25,7 +25,7 @@ CLIENT_SAMPLES_BATCH_SIZE = 1024*2                               # Batch size fo
 
 # ---------------------------------------- SERVER ----------------------------------------
 RESERVOIR_SIZE = int(1e6)                                        # How many samples are stored in each reservoir
-DATA_PROCESS_TIMEOUT = 0.05                                     # Timeout duration before a batch is processed even if it is not full
+DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
 MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies
 MAX_TRAIN_BATCH_SIZE = 1024*10                                   # Batch size when training networks
 STATES_LOCATION = ''
