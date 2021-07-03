@@ -1,12 +1,11 @@
-import argparse
 import grpc
-import faulthandler
+import argparse
 import numpy as np
 import logging
 import time
 from rpc.RL_pb2_grpc import ActorStub, LearnerStub
 from rpc.RL_pb2 import Observation, SampledData, Empty, Who
-from BatchedTraversal import BatchedTraversal
+from batchedtraversal import BatchedTraversal
 from multiprocessing import Process, Queue
 from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS
 from concurrent.futures import ThreadPoolExecutor
@@ -108,7 +107,7 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
         start = time.time()
         for player in range(N_PLAYERS):
             processes = [
-                Process(target=traverse_process, args=(n, inference_channels[n], traversals_per_process, loops_per_process, player,
+                Process(target=traverse_process, args=(inference_channels[n], traversals_per_process, loops_per_process, player,
                                                        regret_ques[player], strategy_ques[player]))
                 for n in range(n_processes)
             ]
@@ -135,7 +134,6 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
 
 
 if __name__ == "__main__":
-    #faulthandler.enable()
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser()
     parser.add_argument('iterations', type=int)

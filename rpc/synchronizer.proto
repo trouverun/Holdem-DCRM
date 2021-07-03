@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+
+message Parameters {
+  int32 loops = 1;
+}
+
+message Empty {
+
+}
+
+service SynchronizerService {
+    rpc StartTraversals(Parameters) returns (Empty);
+}

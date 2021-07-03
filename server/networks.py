@@ -3,6 +3,7 @@ from pokerenv.obs_indices import VALID_ACTIONS, VALID_BET_LOW, VALID_BET_HIGH, P
 from torch.nn.utils.rnn import pack_padded_sequence
 from config import OBS_SHAPE, N_BET_BUCKETS, N_ACTIONS, RNN_HIDDENS, BET_BUCKETS
 from math import inf
+from torch.nn.functional import softmax
 
 
 ACTIONS_START = VALID_ACTIONS[0]
@@ -70,10 +71,12 @@ class StrategyNetwork(torch.nn.Module):
         action_logits = self.action_regret(x)
         bet_logits = self.bet_regret(x)
 
-        # Assign invalid actions and invalid bets 0 regret so that they don't contribute to the loss when training
-        action_logits = torch.where(invalid_actions, torch.zeros_like(action_logits), action_logits)
-        denom_a = action_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
-        action_logits = torch.where(invalid_actions, -inf*torch.ones_like(action_logits), action_logits.abs()/denom_a)
+        # Assign invalid actions and invalid bets -inf logits so that they don't contribute to the loss when training
+        action_logits = torch.where(invalid_actions, -inf*torch.ones_like(action_logits), action_logits)
+        # denom_a = action_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
+        # action_logits = torch.where(invalid_actions, -inf*torch.ones_like(action_logits), action_logits.abs()/denom_a)
+        all_infs = torch.all(action_logits == -inf, dim=1).unsqueeze(0).T.repeat((1, N_ACTIONS))
+        action_logits = torch.where(all_infs, torch.zeros_like(action_logits), action_logits)
 
         betsize_array = torch.tensor(BET_BUCKETS)
         betsize_array = betsize_array.repeat((x.shape[0], 1)).to(self.device)
@@ -81,11 +84,20 @@ class StrategyNetwork(torch.nn.Module):
         betsize_array = torch.cat([valid_bet_low.unsqueeze(1), valid_bet_mid.unsqueeze(1), valid_bet_high.unsqueeze(1), betsize_array],
                                   dim=1)
         bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
-                                 torch.zeros_like(bet_logits), bet_logits)
-        denom_b = bet_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
-        bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
-                                 -inf * torch.ones_like(bet_logits), bet_logits.abs() / denom_b)
+                                 -inf*torch.ones_like(bet_logits), bet_logits)
+        # denom_b = bet_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
+        # bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
+        #                          -inf * torch.ones_like(bet_logits), bet_logits.abs() / denom_b)
         all_infs = torch.all(bet_logits == -inf, dim=1).unsqueeze(0).T.repeat((1, self.bet_buckets))
         bet_logits = torch.where(all_infs, torch.zeros_like(bet_logits), bet_logits)
 
-        return action_logits, bet_logits
+        print(action_logits)
+        print(bet_logits)
+
+        action_dist = softmax(action_logits, dim=1)
+        bet_dist = softmax(bet_logits, dim=1)
+
+        print(action_dist)
+        print(bet_dist)
+
+        return action_dist, bet_dist

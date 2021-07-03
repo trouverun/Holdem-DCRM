@@ -38,7 +38,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         self.regret_loss = torch.nn.MSELoss()
         self.strategy_net = StrategyNetwork(self.device).to(self.device)
         self.strategy_optimizer = torch.optim.Adam(self.regret_net.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
-        self.strategy_loss = torch.nn.BCEWithLogitsLoss()
+        self.strategy_loss = torch.nn.MSELoss()
         try:
             info = np.load('../states/info.npy')
             self.iteration = info[0]
@@ -180,8 +180,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.iteration))
         self.strategy_optimizer.load_state_dict(torch.load('../states/strategy_optimizer'))
         self._training_loop(self.strategy_net, self.strategy_optimizer, self.strategy_loss, self.strategy_observations,
-                            self.strategy_observation_counts, self.strategy_actions, self.strategy_bets, train_indices, validation_indices,
-                            mapping=torch.sigmoid)
+                            self.strategy_observation_counts, self.strategy_actions, self.strategy_bets, train_indices, validation_indices)
         self.iteration += 1
         torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.iteration)
         torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
@@ -195,7 +194,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         self.strategy_lock.release()
         return Empty()
 
-    def _training_loop(self, net, optim, loss_fn, obs, obs_counts, actions, bets, train_indices, validation_indices, mapping=None):
+    def _training_loop(self, net, optim, loss_fn, obs, obs_counts, actions, bets, train_indices, validation_indices):
         if len(train_indices) == 0 or len(validation_indices) == 0:
             raise Exception("Received empty training tensors, this means there are no sampled regrets or strategies. "
                             "Reduce the CLIENT_SAMPLES_BATCH_SIZE value or increase the effective traversals per iteration (k value).")
@@ -210,7 +209,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
             while True:
                 batch_end_i = train_batch_start_i + MAX_TRAIN_BATCH_SIZE
                 if batch_end_i > len(train_indices):
-                    batch_end_i = len(train_indices) - 1
+                    batch_end_i = len(train_indices)
                 batch_indices = train_indices[train_batch_start_i:batch_end_i]
                 train_batch_start_i += MAX_TRAIN_BATCH_SIZE
                 x = torch.from_numpy(obs[batch_indices, :, :]).type(torch.FloatTensor).to(self.device)
@@ -221,19 +220,18 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 action_pred, bet_pred = net(x, x_counts)
                 loss_a = loss_fn(action_pred, y_action)
                 loss_b = loss_fn(bet_pred, y_bet)
-                # Combine the action and bet loss
                 loss = loss_a + loss_b
                 loss.backward()
                 optim.step()
                 running_train_loss += loss.item()
-                if batch_end_i == len(train_indices) - 1:
+                if batch_end_i == len(train_indices):
                     break
             net.eval()
             with torch.no_grad():
                 while True:
                     batch_end_i = valid_batch_start_i + MAX_TRAIN_BATCH_SIZE
                     if batch_end_i > len(validation_indices):
-                        batch_end_i = len(validation_indices) - 1
+                        batch_end_i = len(validation_indices)
                     batch_indices = validation_indices[valid_batch_start_i:batch_end_i]
                     valid_batch_start_i += MAX_TRAIN_BATCH_SIZE
                     x = torch.from_numpy(obs[batch_indices, :, :]).type(torch.FloatTensor).to(self.device)
@@ -245,7 +243,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                     loss_b = loss_fn(bet_pred, y_bet)
                     loss = loss_a + loss_b
                     running_validation_loss += loss.item()
-                    if batch_end_i == len(validation_indices) - 1:
+                    if batch_end_i == len(validation_indices):
                         break
             running_train_loss /= len(train_indices)
             running_validation_loss /= len(validation_indices)
