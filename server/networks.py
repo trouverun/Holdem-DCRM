@@ -73,11 +73,8 @@ class StrategyNetwork(torch.nn.Module):
 
         # Assign invalid actions and invalid bets -inf logits so that they don't contribute to the loss when training
         action_logits = torch.where(invalid_actions, -inf*torch.ones_like(action_logits), action_logits)
-        # denom_a = action_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
-        # action_logits = torch.where(invalid_actions, -inf*torch.ones_like(action_logits), action_logits.abs()/denom_a)
         all_infs = torch.all(action_logits == -inf, dim=1).unsqueeze(0).T.repeat((1, N_ACTIONS))
         action_logits = torch.where(all_infs, torch.zeros_like(action_logits), action_logits)
-
         betsize_array = torch.tensor(BET_BUCKETS)
         betsize_array = betsize_array.repeat((x.shape[0], 1)).to(self.device)
         betsize_array = betsize_array * pot_sizes[:, None]
@@ -85,9 +82,6 @@ class StrategyNetwork(torch.nn.Module):
                                   dim=1)
         bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
                                  -inf*torch.ones_like(bet_logits), bet_logits)
-        # denom_b = bet_logits.abs().sum(dim=1).unsqueeze(1) + 1e-20
-        # bet_logits = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
-        #                          -inf * torch.ones_like(bet_logits), bet_logits.abs() / denom_b)
         all_infs = torch.all(bet_logits == -inf, dim=1).unsqueeze(0).T.repeat((1, self.bet_buckets))
         bet_logits = torch.where(all_infs, torch.zeros_like(bet_logits), bet_logits)
 

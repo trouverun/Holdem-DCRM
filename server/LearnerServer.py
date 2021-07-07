@@ -6,7 +6,8 @@ from rpc.RL_pb2 import Empty
 from collections import namedtuple
 from queue import Queue
 from threading import Lock, Thread
-from config import N_PLAYERS, LEARNING_RATE, WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, OBS_SHAPE, RESERVOIR_SIZE, N_BET_BUCKETS, N_EPOCHS, PATIENCE, SEQUENCE_LENGTH, N_ACTIONS
+from config import N_PLAYERS, REGRET_LEARNING_RATE, REGRET_WEIGHT_DECAY, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, \
+    OBS_SHAPE, RESERVOIR_SIZE, N_BET_BUCKETS, N_EPOCHS, PATIENCE, SEQUENCE_LENGTH, N_ACTIONS
 from networks import RegretNetwork, StrategyNetwork
 
 SampledData = namedtuple("SampledData", "obs count actions bets")
@@ -34,17 +35,16 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         self.gpu_lock = gpu_lock
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.regret_net = RegretNetwork(self.device).to(self.device)
-        self.regret_optimizer = torch.optim.Adam(self.regret_net.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        self.regret_optimizer = torch.optim.Adam(self.regret_net.parameters(), lr=REGRET_LEARNING_RATE, weight_decay=REGRET_WEIGHT_DECAY)
         self.regret_loss = torch.nn.MSELoss()
         self.strategy_net = StrategyNetwork(self.device).to(self.device)
-        self.strategy_optimizer = torch.optim.Adam(self.strategy_net.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+        self.strategy_optimizer = torch.optim.Adam(self.strategy_net.parameters(), lr=STRATEGY_LEARNING_RATE, weight_decay=STRATEGY_WEIGHT_DECAY)
         self.strategy_loss = torch.nn.MSELoss()
         try:
-            info = np.load('../states/info.npy')
-            self.iteration = info[0]
+            self.state = np.load('../states/info.npy')
         except FileNotFoundError:
-            self.iteration = 0
-        logging.info('Starting from strategy iteration %d' % self.iteration)
+            self.state = np.zeros(1)
+        logging.info('Starting from strategy iteration %d' % self.state[0])
         self.gpu_lock.acquire()
         self._load_initial_states()
         self.gpu_lock.release()
@@ -66,13 +66,13 @@ class Learner(RL_pb2_grpc.LearnerServicer):
             except FileNotFoundError:
                 pass
         try:
-            self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.iteration))
+            self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.state[0]))
             self.strategy_optimizer.load_state_dict(torch.load('../states/strategy_optimizer'))
         except FileNotFoundError:
-            if self.iteration != 0:
+            if self.state[0] != 0:
                 logging.info("Unable to load strategy network or optimizer from memory, starting from scratch")
-                self.iteration = 0
-            torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.iteration)
+                self.state[0] = 0
+            torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.state[0])
             torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
             return
         try:
@@ -116,15 +116,13 @@ class Learner(RL_pb2_grpc.LearnerServicer):
 
     def TrainRegrets(self, request, context):
         player = int(request.player)
-        logging.debug("Training regret network for player %d" % player)
         self.regret_locks[player].acquire()
         n_samples = self.regret_sample_counts[player]
+        logging.info("Training regret network for player %d with %d samples" % (player, n_samples))
         all_indices = np.arange(n_samples, dtype=np.int64)
         train_indices = np.random.choice(all_indices, int(0.8*n_samples), replace=False)
         validation_indices = np.setdiff1d(all_indices, train_indices)
-        logging.debug("acquiring gpu lock")
         self.gpu_lock.acquire()
-        logging.debug("acquired gpu lock")
         self.regret_net.load_state_dict(torch.load('../states/regret_net_initial'))
         self.regret_optimizer.load_state_dict(torch.load('../states/regret_optimizer_initial'))
         self._training_loop(self.regret_net, self.regret_optimizer, self.regret_loss, self.regret_observations[player],
@@ -169,28 +167,26 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         return Empty()
 
     def TrainStrategy(self, request, context):
-        logging.debug("Training strategy network")
         self.strategy_lock.acquire()
         n_samples = self.strategy_sample_count
-        logging.debug("stragety samples %d" % n_samples)
+        logging.info("Training strategy network with %d samples" % n_samples)
         all_indices = np.arange(n_samples, dtype=np.int64)
         train_indices = np.random.choice(all_indices, int(0.8 * n_samples), replace=False)
         validation_indices = np.setdiff1d(all_indices, train_indices)
         self.gpu_lock.acquire()
-        self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.iteration))
+        self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.state[0]))
         self.strategy_optimizer.load_state_dict(torch.load('../states/strategy_optimizer'))
         self._training_loop(self.strategy_net, self.strategy_optimizer, self.strategy_loss, self.strategy_observations,
                             self.strategy_observation_counts, self.strategy_actions, self.strategy_bets, train_indices, validation_indices)
-        self.iteration += 1
-        torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.iteration)
+        self.state[0] += 1
+        torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.state[0])
         torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
         self.gpu_lock.release()
         np.save('../reservoirs/strategy_reservoir_obs.npy', self.strategy_observations)
         np.save('../reservoirs/strategy_reservoir_obs_count.npy', self.strategy_observation_counts)
         np.save('../reservoirs/strategy_reservoir_act.npy', self.strategy_actions)
         np.save('../reservoirs/strategy_reservoir_bet.npy', self.strategy_bets)
-        info = np.array([self.iteration])
-        np.save('../states/info.npy', info)
+        np.save('../states/info.npy', self.state)
         self.strategy_lock.release()
         return Empty()
 
