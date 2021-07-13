@@ -1,5 +1,5 @@
 __pycache__
 .idea
-states/
-reservoirs/
-hands/
+states/*
+reservoirs/*
+hands/*
