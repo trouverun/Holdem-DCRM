@@ -48,3 +48,27 @@ service Learner {
     rpc TrainRegrets(Who) returns (Empty);
     rpc TrainStrategy(Empty) returns (Empty);
 }
+
+message IterationSettings {
+    int32 k = 1;
+    int32 traversals_per_process = 2;
+    int32 n_processes = 3;
+}
+
+message EvaluationSettings {
+
+}
+
+message Identifier {
+    int32 worker_id = 1;
+}
+
+service Master {
+    rpc CompleteTraversal(Identifier) returns (Empty);
+}
+
+service Slave {
+    rpc SetIdentifier(Identifier) returns (Empty);
+    rpc RunIterations(IterationSettings) returns (Empty);
+    rpc RunEvaluations(EvaluationSettings) returns (Empty);
+}

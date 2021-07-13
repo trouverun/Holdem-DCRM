@@ -39,7 +39,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         self.regret_loss = torch.nn.MSELoss()
         self.strategy_net = StrategyNetwork(self.device).to(self.device)
         self.strategy_optimizer = torch.optim.Adam(self.strategy_net.parameters(), lr=STRATEGY_LEARNING_RATE, weight_decay=STRATEGY_WEIGHT_DECAY)
-        self.strategy_loss = torch.nn.MSELoss()
+        self.strategy_loss = torch.nn.KLDivLoss(reduction='batchmean')
         try:
             self.state = np.load('../states/info.npy')
         except FileNotFoundError:

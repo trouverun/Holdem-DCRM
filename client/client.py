@@ -108,7 +108,7 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
         for player in range(N_PLAYERS):
             processes = [
                 Process(target=traverse_process, args=(inference_channels[n], traversals_per_process, loops_per_process, player,
-                                                       regret_ques[player], strategy_ques[player]))
+                                                       regret_ques[player], strategy_ques))
                 for n in range(n_processes)
             ]
             for p in processes:

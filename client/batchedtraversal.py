@@ -1,4 +1,5 @@
 import copy
+import logging
 import numpy as np
 import pokerenv.obs_indices as indices
 from pokerenv.table import Table
@@ -9,12 +10,12 @@ from config import N_PLAYERS, LOW_STACK_BBS, HIGH_STACK_BBS, HH_LOCATION, INVALI
 
 # Container class for multiple counterfactual regret minimization traversals
 class BatchedTraversal:
-    def __init__(self, n_traversals, traverser, regret_que, strategy_que):
+    def __init__(self, n_traversals, traverser, regret_que, strategy_ques):
         assert 0 <= traverser < N_PLAYERS
         self.n_traversals = n_traversals
         self.traverser = traverser
         self.regret_que = regret_que
-        self.strategy_que = strategy_que
+        self.strategy_ques = strategy_ques
         self.node_n = 0
         self.all_nodes = dict()
         # Set of nodes that need to have their predicted regrets added, and possible child nodes expanded
@@ -79,9 +80,12 @@ class BatchedTraversal:
                     expected_reward = (parent.pi_action * parent.rewards_action).sum()
                     action_regrets = parent.rewards_action - expected_reward
                     action_regrets[np.argwhere(valid_actions == 0)] = 0
-                    bet_expected_reward = parent.rewards_action[2]
-                    bet_regrets = parent.rewards_bet - bet_expected_reward
-                    bet_regrets[invalid_bets] = 0
+                    if valid_actions[2]:
+                        bet_expected_reward = parent.rewards_action[2]
+                        bet_regrets = parent.rewards_bet - bet_expected_reward
+                        bet_regrets[invalid_bets] = 0
+                    else:
+                        bet_regrets = np.zeros(N_BET_BUCKETS, dtype=np.float32)
                     self.regret_que.put((parent.observation_history, parent.observation_count, action_regrets, bet_regrets))
                     self._propagate_reward(parent, expected_reward)
                     self.all_nodes.pop(node.id)
@@ -159,7 +163,7 @@ class BatchedTraversal:
             new_node = self.all_nodes[self.node_n]
             obs, obs_count, reward, done = new_node.step(previous_observation, parent_is_traverser, action_dont_care)
             if not parent_is_traverser:
-                self.strategy_que.put((node.observation_history, obs_count, node.pi_action, node.pi_bet))
+                self.strategy_ques[node.acting_player].put((node.observation_history, node.observation_count, node.pi_action, node.pi_bet))
             if not done:
                 self.waiting_nodes.add(self.node_n)
                 observations[new_node.acting_player].append(obs)
@@ -224,18 +228,21 @@ class Node:
         else:
             self.pi_action = action_regrets / action_regrets.sum()
 
-        # When all regrets are negative, select the least negative entry deterministically like in the DCRM paper
-        if np.count_nonzero(bet_regrets >= 0) == 0:
-            chosen_i = bet_regrets.argmax()
-            bet_regrets[chosen_i] = 1
-        bet_regrets = np.maximum(bet_regrets, np.zeros_like(bet_regrets), dtype=np.float32)
-        # Make the calculated policy probabilities sum to 1
-        if np.count_nonzero(bet_regrets) == 0:
-            # If all regrets are zero, give all (valid) bets uniform probability
-            self.pi_bet[np.logical_not(invalid_bets)] = 1 / np.count_nonzero(np.logical_not(invalid_bets))
-        else:
-            self.pi_bet = bet_regrets / bet_regrets.sum()
+        # If bet action is not available bet pi should be all zeros (so bet loss will evaluate to 0 when training strategy network)
+        if valid_actions[2]:
+            # When all regrets are negative, select the least negative entry deterministically like in the DCRM paper
+            if np.count_nonzero(bet_regrets >= 0) == 0:
+                chosen_i = bet_regrets.argmax()
+                bet_regrets[chosen_i] = 1
+            bet_regrets = np.maximum(bet_regrets, np.zeros_like(bet_regrets), dtype=np.float32)
+            # Make the calculated policy probabilities sum to 1
+            if np.count_nonzero(bet_regrets) == 0:
+                # If all regrets are zero, give all (valid) bets uniform probability
+                self.pi_bet[np.logical_not(invalid_bets)] = 1 / np.count_nonzero(np.logical_not(invalid_bets))
+            else:
+                self.pi_bet = bet_regrets / bet_regrets.sum()
 
+    # Steps the node environment (copy of parent env) forward by a single time step, with the action decided by parent node
     def step(self, previous_obs, parent_is_traverser=False, action_dont_care=False):
         table_action = Action(PlayerAction.CHECK, 0)
         # If the action is a "don't care", we are only feeding junk actions to the environment in order to get the final rewards back,
@@ -269,7 +276,7 @@ class Node:
             next_player = int(obs[indices.ACTING_PLAYER])
             self.acting_player = next_player
             p_parent = self.parent
-            # Find the most recent decision node where the current acting player was the acting player
+            # Find the most recent decision node where the current acting player was the acting player, and copy the observation history
             while True:
                 if p_parent is None:
                     break
