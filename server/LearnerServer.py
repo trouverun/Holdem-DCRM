@@ -57,8 +57,9 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         torch.save(self.regret_net.state_dict(), '../states/regret_net_initial')
         torch.save(self.regret_optimizer.state_dict(), '../states/regret_optimizer_initial')
         for player in range(N_PLAYERS):
+            torch.save(self.regret_net.state_dict(), '../states/regret_net_player_%d' % player)
             try:
-                torch.save(self.regret_net.state_dict(), '../states/regret_net_player_%d' % player)
+                self.regret_sample_counts[player] = np.load('../reservoirs/regret_samples_player_%d.npy' % player)
                 self.regret_observations[player] = np.load('../reservoirs/regret_reservoir_obs_player_%d.npy' % player).reshape(RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE)
                 self.regret_observation_counts[player] = np.load('../reservoirs/regret_reservoir_obs_count_player_%d.npy' % player)
                 self.regret_actions[player] = np.load('../reservoirs/regret_reservoir_act_player_%d.npy' % player)
@@ -71,11 +72,11 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         except FileNotFoundError:
             if self.state[0] != 0:
                 logging.info("Unable to load strategy network or optimizer from memory, starting from scratch")
-                self.state[0] = 0
+                self.state = np.zeros(1)
             torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.state[0])
             torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
-            return
         try:
+            self.strategy_sample_count = np.load('../reservoirs/strategy_samples.npy')
             self.strategy_observations = np.load('../reservoirs/strategy_reservoir_obs.npy').reshape(RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE)
             self.strategy_observation_counts = np.load('../reservoirs/strategy_reservoir_obs_count.npy')
             self.strategy_actions = np.load('../reservoirs/strategy_reservoir_act.npy')
@@ -94,13 +95,13 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.regret_observation_counts[player][count] = item.count
                 self.regret_actions[player][count] = item.actions
                 self.regret_bets[player][count] = item.bets
+                self.regret_sample_counts[player] += 1
             elif np.random.uniform() > (1 - RESERVOIR_SIZE / self.regret_sample_counts[player]):
                 to_replace = np.random.randint(0, RESERVOIR_SIZE)
                 self.regret_observations[player][to_replace] = item.obs
                 self.regret_observation_counts[player][to_replace] = item.count
                 self.regret_actions[player][to_replace] = item.actions
                 self.regret_bets[player][to_replace] = item.bets
-            self.regret_sample_counts[player] += 1
             self.regret_locks[player].release()
 
     def AddRegrets(self, request, context):
@@ -129,6 +130,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                             self.regret_observation_counts[player], self.regret_actions[player], self.regret_bets[player], train_indices, validation_indices)
         torch.save(self.regret_net.state_dict(), '../states/regret_net_player_%d' % player)
         self.gpu_lock.release()
+        np.save('../reservoirs/regret_samples_player_%d.npy' % player, self.regret_sample_counts)
         np.save('../reservoirs/regret_reservoir_obs_player_%d.npy' % player, self.regret_observations[player])
         np.save('../reservoirs/regret_reservoir_obs_count_player_%d.npy' % player, self.regret_observation_counts[player])
         np.save('../reservoirs/regret_reservoir_act_player_%d.npy' % player, self.regret_actions[player])
@@ -147,13 +149,13 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.strategy_observation_counts[count] = item.count
                 self.strategy_actions[count] = item.actions
                 self.strategy_bets[count] = item.bets
+                self.strategy_sample_count += 1
             elif np.random.uniform() > (1 - RESERVOIR_SIZE / self.strategy_sample_count):
                 to_replace = np.random.randint(0, RESERVOIR_SIZE)
                 self.strategy_observations[to_replace] = item.obs
                 self.strategy_observation_counts[to_replace] = item.count
                 self.strategy_actions[to_replace] = item.actions
                 self.strategy_bets[to_replace] = item.bets
-            self.strategy_sample_count += 1
             self.strategy_lock.release()
 
     def AddStrategies(self, request, context):
@@ -182,6 +184,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.state[0])
         torch.save(self.strategy_optimizer.state_dict(), '../states/strategy_optimizer')
         self.gpu_lock.release()
+        np.save('../reservoirs/strategy_samples.npy', self.strategy_sample_count)
         np.save('../reservoirs/strategy_reservoir_obs.npy', self.strategy_observations)
         np.save('../reservoirs/strategy_reservoir_obs_count.npy', self.strategy_observation_counts)
         np.save('../reservoirs/strategy_reservoir_act.npy', self.strategy_actions)
