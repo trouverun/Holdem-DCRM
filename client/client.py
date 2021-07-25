@@ -7,7 +7,8 @@ from rpc.RL_pb2_grpc import ActorStub, LearnerStub
 from rpc.RL_pb2 import Observation, SampledData, Empty, Who
 from batchedtraversal import BatchedTraversal
 from multiprocessing import Process, Queue
-from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS
+from threading import Thread
+from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS, N_QUE_PROCESS
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -29,7 +30,7 @@ def send_player_batch(args):
 
 
 # Does a specified amount of game traversals, sampling regrets and global strategies in the process
-def traverse_process(channel, traversals_per_process, loops_per_process, traverser, regret_que, strategy_que):
+def traverse_process(channel, traversals_per_process, loops_per_process, traverser, regret_que, strategy_que, iter_que):
     bt = BatchedTraversal(traversals_per_process, traverser, regret_que, strategy_que)
     for _ in range(loops_per_process):
         obs, obs_counts, mapping = bt.reset()
@@ -49,13 +50,12 @@ def traverse_process(channel, traversals_per_process, loops_per_process, travers
                 action_regrets[player] = ar
                 bet_regrets[player] = br
             obs, obs_counts, mapping = bt.step(action_regrets, bet_regrets, mapping)
+        iter_que.put('completed')
 
 
 # Clears the regret/strategy queue by sending the items to a learner server which adds them to reservoirs
-def clear_queue_process(player, type, que):
-    logging.info("Started clear queue process for player %d" % player)
-    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    channel = grpc.insecure_channel('localhost:50051', options)
+def clear_queue_thread(player, channel, type, que):
+    logging.info("Started queue clearing thread for player %d" % player)
     stub = LearnerStub(channel)
     observations = []
     counts = []
@@ -63,8 +63,6 @@ def clear_queue_process(player, type, que):
     bets = []
     while True:
         obs, count, action, bet = que.get()
-        if obs is None:
-            break
         observations.append(obs)
         counts.append(count)
         actions.append(action)
@@ -86,6 +84,27 @@ def clear_queue_process(player, type, que):
             bets = []
 
 
+def clear_queue_process(regret_ques, strategy_ques):
+    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
+    channel = grpc.insecure_channel('localhost:50051', options)
+    for player in range(N_PLAYERS):
+        Thread(target=clear_queue_thread, args=(player, channel, "regret", regret_ques[player])).start()
+        Thread(target=clear_queue_thread, args=(player, channel, "strategy", strategy_ques[player])).start()
+
+
+def iter_tracker(k, queue):
+    iters = 0
+    while True:
+        action = queue.get()
+        if action == 'reset':
+            iters = 0
+            continue
+        elif action == 'quit':
+            break
+        iters += 1
+        logging.info("Traversals completed %d / %d" % (iters, k))
+
+
 def deep_cfr(iterations, k, traversals_per_process, n_processes):
     loops_per_process = int(k / (traversals_per_process*n_processes))
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
@@ -94,21 +113,22 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
     inference_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(n_processes)]
     regret_ques = [Queue() for _ in range(N_PLAYERS)]
     strategy_ques = [Queue() for _ in range(N_PLAYERS)]
+    iter_que = Queue()
+    iter_track_process = Process(target=iter_tracker, args=(k, iter_que))
+    iter_track_process.start()
+    process_count = 0
 
-    # Start processes which are responsible for emptying the regret and strategy ques (sending the data to learner server)
-    r_que_processors = [Process(target=clear_queue_process, args=(player, "regret", regret_ques[player])) for player in range(N_PLAYERS)]
-    s_que_processors = [Process(target=clear_queue_process, args=(player, "strategy", strategy_ques[player])) for player in range(N_PLAYERS)]
-    que_processors = r_que_processors + s_que_processors
+    que_processors = [Process(target=clear_queue_process, args=(regret_ques, strategy_ques)) for _ in range(N_QUE_PROCESS)]
     for p in que_processors:
         p.start()
 
-    process_count = 0
     for iteration in range(iterations):
         start = time.time()
         for player in range(N_PLAYERS):
+
             processes = [
                 Process(target=traverse_process, args=(inference_channels[n], traversals_per_process, loops_per_process, player,
-                                                       regret_ques[player], strategy_ques))
+                                                       regret_ques[player], strategy_ques, iter_que))
                 for n in range(n_processes)
             ]
             for p in processes:
@@ -121,16 +141,16 @@ def deep_cfr(iterations, k, traversals_per_process, n_processes):
                 logging.debug("joined process %d" % process_count)
             logging.info("Training regrets for player %d" % player)
             stub_learner.TrainRegrets(Who(player=player))
+            iter_que.put('reset')
         logging.info("Training strategy for iteration %d" % iteration)
         stub_learner.TrainStrategy(Empty())
         end = time.time()
         logging.info("One iteration took %fs" % (end - start))
 
-    # Close the queues
-    for que in regret_ques + strategy_ques:
-        que.put((None, None, None, None))
+    iter_que.put('quit')
+    iter_track_process.join()
     for p in que_processors:
-        p.join()
+        p.kill()
 
 
 if __name__ == "__main__":
