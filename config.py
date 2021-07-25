@@ -1,4 +1,5 @@
 import numpy as np
+from pokerenv.table import Table
 
 # --------------------------------------- WORKERS ----------------------------------------
 SERVER_HOST = ['localhost:5050', 'localhost:5051']
@@ -28,11 +29,12 @@ INVALID_ACTION_PENALTY = 0
 
 
 # --------------------------------------- GLOBAL -----------------------------------------
-OBS_SHAPE = 60
+env = Table(6)
+OBS_SHAPE = env.observation_space.shape[0]
 SEQUENCE_LENGTH = 5
-N_ACTIONS = 4
+N_ACTIONS = env.action_space.spaces[0].n
 N_DEFAULT_BET_BUCKETS = 3                                        # Default bet buckets are min bet, max bet and (min bet + max bet) / 2
-N_USER_BET_BUCKETS = 4                                           # How many bet sizes are considered by the regret/strategy networks
+N_USER_BET_BUCKETS = 4                                           # How many other bet sizes are considered by the regret/strategy networks
 N_BET_BUCKETS = N_DEFAULT_BET_BUCKETS + N_USER_BET_BUCKETS
 BET_BUCKETS = np.array([0.75, 1, 1.5, 2])                        # Which (additional) bet sizes are considered (specified as % of the pot)
 

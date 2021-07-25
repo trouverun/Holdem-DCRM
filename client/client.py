@@ -102,7 +102,7 @@ def iter_tracker(k, queue):
         elif action == 'quit':
             break
         iters += 1
-        logging.info("Iterations completed %d / %d" % (iters, k))
+        logging.info("Traversals completed %d / %d" % (iters, k))
 
 
 def deep_cfr(iterations, k, traversals_per_process, n_processes):

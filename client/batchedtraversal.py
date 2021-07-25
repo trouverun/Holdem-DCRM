@@ -258,13 +258,7 @@ class Node:
                 action = action_list[action]
                 bet_size = 0
                 if action == PlayerAction.BET:
-                    try:
-                        bet_size = np.random.choice(bet_sizes, p=self.parent.pi_bet)
-                    except ValueError:
-                        logging.info(self.parent.observation_history[self.parent.observation_count-1][indices.VALID_ACTIONS])
-                        logging.info(self.parent.pi_action)
-                        logging.info(self.parent.pi_bet)
-                        logging.info(self.parent.didstupidstuff)
+                    bet_size = np.random.choice(bet_sizes, p=self.parent.pi_bet)
                 table_action = Action(action, bet_size)
             else:
                 bet_size = 0
