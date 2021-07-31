@@ -2,19 +2,20 @@ import logging
 import torch
 import numpy as np
 from rpc import RL_pb2_grpc
-from rpc.RL_pb2 import Empty
+from rpc.RL_pb2 import Empty, IntMessage
 from collections import namedtuple
 from queue import Queue
 from threading import Lock, Thread
 from config import N_PLAYERS, REGRET_LEARNING_RATE, REGRET_WEIGHT_DECAY, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, \
     OBS_SHAPE, RESERVOIR_SIZE, N_BET_BUCKETS, N_EPOCHS, PATIENCE, SEQUENCE_LENGTH, N_ACTIONS
 from networks import RegretNetwork, StrategyNetwork
+import time
 
 SampledData = namedtuple("SampledData", "obs count actions bets")
 
 
 class Learner(RL_pb2_grpc.LearnerServicer):
-    def __init__(self, gpu_lock):
+    def __init__(self, gpu_lock, ready):
         # ---------------------------------- Regret ----------------------------------
         self.regret_locks = [Lock() for _ in range(N_PLAYERS)]
         self.regret_sample_que = [Queue() for _ in range(N_PLAYERS)]
@@ -45,7 +46,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         try:
             self.state = np.load('../states/info.npy')
         except FileNotFoundError:
-            self.state = np.zeros(1)
+            self.state = np.zeros(1, dtype=np.int32)
         logging.info('Starting from strategy iteration %d' % self.state[0])
         self.gpu_lock.acquire()
         self._load_initial_states()
@@ -54,11 +55,33 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         for i in range(N_PLAYERS):
             Thread(target=self._reservoir_sample_regrets, args=(i,)).start()
         Thread(target=self._reservoir_sample_strategy, args=()).start()
+        ready.set()
 
     def _load_initial_states(self):
+        # pre train to (mostly) 0 regret
+        # TODO: smarter solution
+        n_samples = int(1e4)
+        junkobs = np.random.randint(-200, 200, [n_samples, SEQUENCE_LENGTH, OBS_SHAPE])
+        junkcounts = np.random.randint(1, 6, [n_samples, 1])
+        a_labels = np.zeros([n_samples, N_ACTIONS])
+        b_labels = np.zeros([n_samples, N_BET_BUCKETS])
+        optimizer = self.regret_optimizer_fn(self.regret_net.parameters(), lr=REGRET_LEARNING_RATE, weight_decay=REGRET_WEIGHT_DECAY)
+        scheduler = self.regret_scheduler_fn(optimizer=optimizer, max_lr=REGRET_LEARNING_RATE, total_steps=None,
+                                             epochs=int(N_EPOCHS), steps_per_epoch=MAX_TRAIN_BATCH_SIZE, pct_start=0.3,
+                                             anneal_strategy='cos', cycle_momentum=True,
+                                             base_momentum=0.85, max_momentum=0.95, div_factor=25.0,
+                                             final_div_factor=1000.0, last_epoch=-1)
+        all_indices = np.arange(n_samples, dtype=np.int64)
+        train_indices = np.random.choice(all_indices, int(0.8*n_samples), replace=False)
+        validation_indices = np.setdiff1d(all_indices, train_indices)
+        self._training_loop(self.regret_net, optimizer, self.regret_loss, junkobs, junkcounts, a_labels, b_labels, train_indices, validation_indices, scheduler, 'iter')
         torch.save(self.regret_net.state_dict(), '../states/regret_net_initial')
+
+        regret_failed = False
         for player in range(N_PLAYERS):
             torch.save(self.regret_net.state_dict(), '../states/regret_net_player_%d' % player)
+            if regret_failed:
+                continue
             try:
                 self.regret_sample_counts[player] = np.load('../reservoirs/regret_samples_player_%d.npy' % player)
                 self.regret_observations[player] = np.load('../reservoirs/regret_reservoir_obs_player_%d.npy' % player).reshape(RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE)
@@ -66,41 +89,45 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.regret_actions[player] = np.load('../reservoirs/regret_reservoir_act_player_%d.npy' % player)
                 self.regret_bets[player] = np.load('../reservoirs/regret_reservoir_bet_player_%d.npy' % player)
             except FileNotFoundError:
-                pass
+                regret_failed = True
         try:
-            self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.state[0]))
+            for i in range(self.state[0]+1):
+                self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % i))
         except FileNotFoundError:
             if self.state[0] != 0:
-                logging.info("Unable to load strategy network or optimizer from memory, starting from scratch")
-                self.state = np.zeros(1)
-            torch.save(self.strategy_net.state_dict(), '../states/strategy_net_%d' % self.state[0])
-        try:
-            self.strategy_sample_count = np.load('../reservoirs/strategy_samples.npy')
-            self.strategy_observations = np.load('../reservoirs/strategy_reservoir_obs.npy').reshape(RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE)
-            self.strategy_observation_counts = np.load('../reservoirs/strategy_reservoir_obs_count.npy')
-            self.strategy_actions = np.load('../reservoirs/strategy_reservoir_act.npy')
-            self.strategy_bets = np.load('../reservoirs/strategy_reservoir_bet.npy')
-        except FileNotFoundError:
-            pass
+                logging.info("Unable to load strategy network weights from memory, starting from scratch")
+                self.state = np.zeros(1, dtype=np.int32)
+            torch.save(self.strategy_net.state_dict(), '../states/strategy_net_0')
+            return
+        if not regret_failed:
+            try:
+                self.strategy_sample_count = np.load('../reservoirs/strategy_samples.npy')
+                self.strategy_observations = np.load('../reservoirs/strategy_reservoir_obs.npy').reshape(RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE)
+                self.strategy_observation_counts = np.load('../reservoirs/strategy_reservoir_obs_count.npy')
+                self.strategy_actions = np.load('../reservoirs/strategy_reservoir_act.npy')
+                self.strategy_bets = np.load('../reservoirs/strategy_reservoir_bet.npy')
+            except FileNotFoundError:
+                pass
 
     def _reservoir_sample_regrets(self, player):
         logging.info("Started regret reservoir sampling thread for player %d", player)
         while True:
-            item = self.regret_sample_que[player].get()
+            obs, counts, actions, bets = self.regret_sample_que[player].get()
             self.regret_locks[player].acquire()
             count = self.regret_sample_counts[player]
-            if count < RESERVOIR_SIZE:
-                self.regret_observations[player][count] = item.obs
-                self.regret_observation_counts[player][count] = item.count
-                self.regret_actions[player][count] = item.actions
-                self.regret_bets[player][count] = item.bets
-                self.regret_sample_counts[player] += 1
-            elif np.random.uniform() > (1 - RESERVOIR_SIZE / self.regret_sample_counts[player]):
-                to_replace = np.random.randint(0, RESERVOIR_SIZE)
-                self.regret_observations[player][to_replace] = item.obs
-                self.regret_observation_counts[player][to_replace] = item.count
-                self.regret_actions[player][to_replace] = item.actions
-                self.regret_bets[player][to_replace] = item.bets
+            if count + obs.shape[0] < RESERVOIR_SIZE:
+                self.regret_observations[player][count:count + obs.shape[0]] = obs
+                self.regret_observation_counts[player][count:count + obs.shape[0]] = counts
+                self.regret_actions[player][count:count + obs.shape[0]] = actions
+                self.regret_bets[player][count:count + obs.shape[0]] = bets
+                self.regret_sample_counts[player] += obs.shape[0]
+            else:
+                should_replace = np.random.uniform(obs.shape[0]) > (1 - RESERVOIR_SIZE / count)
+                replace_indices = np.random.choice(np.arange(RESERVOIR_SIZE), np.count_nonzero(should_replace), replace=False)
+                self.regret_observations[player][replace_indices] = obs[should_replace.nonzero()]
+                self.regret_observation_counts[player][replace_indices] = counts[should_replace.nonzero()]
+                self.regret_actions[player][replace_indices] = actions[should_replace.nonzero()]
+                self.regret_bets[player][replace_indices] = bets[should_replace.nonzero()]
             self.regret_locks[player].release()
 
     def AddRegrets(self, request, context):
@@ -110,12 +137,11 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         obs_counts = np.frombuffer(request.observation_counts, dtype=np.int32).reshape(request.shape, 1)
         action_regrets = np.frombuffer(request.action_data, dtype=np.float32).reshape(request.shape, 4)
         bet_regrets = np.frombuffer(request.bet_data, dtype=np.float32).reshape(request.shape, N_BET_BUCKETS)
-        for i in range(request.shape):
-            self.regret_sample_que[player].put(SampledData(observations[i], obs_counts[i], action_regrets[i], bet_regrets[i]))
+        self.regret_sample_que[player].put((observations, obs_counts, action_regrets, bet_regrets))
         return Empty()
 
     def TrainRegrets(self, request, context):
-        player = int(request.player)
+        player = int(request.value)
         self.regret_locks[player].acquire()
         n_samples = self.regret_sample_counts[player]
         logging.info("Training regret network for player %d with %d samples" % (player, n_samples))
@@ -134,7 +160,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                             self.regret_observation_counts[player], self.regret_actions[player], self.regret_bets[player], train_indices, validation_indices, scheduler, 'iter')
         torch.save(self.regret_net.state_dict(), '../states/regret_net_player_%d' % player)
         self.gpu_lock.release()
-        np.save('../reservoirs/regret_samples_player_%d.npy' % player, self.regret_sample_counts)
+        np.save('../reservoirs/regret_samples_player_%d.npy' % player, self.regret_sample_counts[player])
         np.save('../reservoirs/regret_reservoir_obs_player_%d.npy' % player, self.regret_observations[player])
         np.save('../reservoirs/regret_reservoir_obs_count_player_%d.npy' % player, self.regret_observation_counts[player])
         np.save('../reservoirs/regret_reservoir_act_player_%d.npy' % player, self.regret_actions[player])
@@ -145,21 +171,22 @@ class Learner(RL_pb2_grpc.LearnerServicer):
     def _reservoir_sample_strategy(self):
         logging.info("Started strategy reservoir sampling thread")
         while True:
-            item = self.strategy_sample_que.get()
+            obs, counts, actions, bets = self.strategy_sample_que.get()
             self.strategy_lock.acquire()
             count = self.strategy_sample_count
-            if count < RESERVOIR_SIZE:
-                self.strategy_observations[count] = item.obs
-                self.strategy_observation_counts[count] = item.count
-                self.strategy_actions[count] = item.actions
-                self.strategy_bets[count] = item.bets
-                self.strategy_sample_count += 1
-            elif np.random.uniform() > (1 - RESERVOIR_SIZE / self.strategy_sample_count):
-                to_replace = np.random.randint(0, RESERVOIR_SIZE)
-                self.strategy_observations[to_replace] = item.obs
-                self.strategy_observation_counts[to_replace] = item.count
-                self.strategy_actions[to_replace] = item.actions
-                self.strategy_bets[to_replace] = item.bets
+            if count + obs.shape[0] < RESERVOIR_SIZE:
+                self.strategy_observations[count:count + obs.shape[0]] = obs
+                self.strategy_observation_counts[count:count + obs.shape[0]] = counts
+                self.strategy_actions[count:count + obs.shape[0]] = actions
+                self.strategy_bets[count:count + obs.shape[0]] = bets
+                self.strategy_sample_count += obs.shape[0]
+            else:
+                should_replace = np.random.uniform(obs.shape[0]) > (1 - RESERVOIR_SIZE / count)
+                replace_indices = np.random.choice(np.arange(RESERVOIR_SIZE), np.count_nonzero(should_replace), replace=False)
+                self.strategy_observations[replace_indices] = obs[should_replace.nonzero()]
+                self.strategy_observation_counts[replace_indices] = counts[should_replace.nonzero()]
+                self.strategy_actions[replace_indices] = actions[should_replace.nonzero()]
+                self.strategy_bets[replace_indices] = bets[should_replace.nonzero()]
             self.strategy_lock.release()
 
     def AddStrategies(self, request, context):
@@ -168,8 +195,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         obs_counts = np.frombuffer(request.observation_counts, dtype=np.int32).reshape(request.shape, 1)
         action_strategy = np.frombuffer(request.action_data, dtype=np.float32).reshape(request.shape, 4)
         bet_strategy = np.frombuffer(request.bet_data, dtype=np.float32).reshape(request.shape, N_BET_BUCKETS)
-        for i in range(request.shape):
-            self.strategy_sample_que.put(SampledData(observations[i], obs_counts[i], action_strategy[i], bet_strategy[i]))
+        self.strategy_sample_que.put((observations, obs_counts, action_strategy, bet_strategy))
         return Empty()
 
     def TrainStrategy(self, request, context):
@@ -200,6 +226,9 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         np.save('../states/info.npy', self.state)
         self.strategy_lock.release()
         return Empty()
+
+    def AvailableStrategies(self, request, context):
+        return IntMessage(value=self.state[0])
 
     def _training_loop(self, net, optim, loss_fn, obs, obs_counts, actions, bets, train_indices, validation_indices, scheduler, step_point):
         if len(train_indices) == 0 or len(validation_indices) == 0:
@@ -256,7 +285,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                         break
             running_train_loss /= len(train_indices)
             running_validation_loss /= len(validation_indices)
-            logging.info("Epoch %d: train_loss: %.20f, valid_loss: %.20f" % (epoch, running_train_loss, running_validation_loss))
+            logging.info("Epoch %d: train_loss: %.20f, valid_loss: %.20f (no improvement = %d)" % (epoch, running_train_loss, running_validation_loss, no_improvement))
             if best is None:
                 best = running_validation_loss
             else:

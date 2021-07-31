@@ -3,6 +3,7 @@ from pokerenv.obs_indices import VALID_ACTIONS, VALID_BET_LOW, VALID_BET_HIGH, P
 from torch.nn.utils.rnn import pack_padded_sequence
 from config import OBS_SHAPE, N_BET_BUCKETS, N_ACTIONS, RNN_HIDDENS, BET_BUCKETS
 from torch.nn.functional import log_softmax
+import logging
 
 
 ACTIONS_START = VALID_ACTIONS[0]
@@ -33,7 +34,7 @@ class RegretNetwork(torch.nn.Module):
         action_regret = self.action_regret(x)
         bet_regret = self.bet_regret(x)
 
-        # Assign invalid actions and invalid bets 0 regret so that they don't contribute to the loss when training
+        # Give 0 regret to all bet sizes that are outside of the valid range
         action_regret = torch.where(invalid_actions, torch.zeros_like(action_regret), action_regret)
         betsize_array = torch.tensor(BET_BUCKETS)
         betsize_array = betsize_array.repeat((x.shape[0], 1)).to(self.device)
@@ -42,9 +43,9 @@ class RegretNetwork(torch.nn.Module):
                                   dim=1)
         bet_regret = torch.where(((valid_bet_low_r > betsize_array).to(torch.bool) | (valid_bet_high_r < betsize_array).to(torch.bool)),
                                  torch.zeros_like(bet_regret), bet_regret)
-
-        # TODO: zero regret for all bet sizes if bet action is not valid
-
+        # When bet action is invalid give all bet sizes 0 regret
+        bet_invalid = (invalid_actions[:, 2] == 1).unsqueeze(1).repeat(1, N_BET_BUCKETS).to(self.device)
+        bet_regret = torch.where(bet_invalid.to(torch.bool), torch.zeros_like(bet_regret), bet_regret)
         return action_regret, bet_regret
 
 
@@ -72,7 +73,7 @@ class StrategyNetwork(torch.nn.Module):
         action_logits = self.action_regret(x)
         bet_logits = self.bet_regret(x)
 
-        # Assign invalid actions and invalid bets -1e5 logits so that they don't contribute to the loss when training
+        # Give -1e5 logits to all bet sizes that are outside of the valid range
         action_logits = torch.where(invalid_actions, -1e5*torch.ones_like(action_logits), action_logits)
         all_infs = torch.all(action_logits == -1e5, dim=1).unsqueeze(0).T.repeat((1, N_ACTIONS))
         action_logits = torch.where(all_infs, torch.zeros_like(action_logits), action_logits)
@@ -85,6 +86,9 @@ class StrategyNetwork(torch.nn.Module):
                                  -1e5*torch.ones_like(bet_logits), bet_logits)
         all_infs = torch.all(bet_logits == -1e5, dim=1).unsqueeze(0).T.repeat((1, self.bet_buckets))
         bet_logits = torch.where(all_infs, torch.zeros_like(bet_logits), bet_logits)
+        # When bet action is invalid make all corresponding bet logits -1e5
+        bet_invalid = (invalid_actions[:, 2] == 1).unsqueeze(1).repeat(1, N_BET_BUCKETS).to(self.device)
+        bet_logits = torch.where(bet_invalid.to(torch.bool), -1e5*torch.ones_like(bet_logits), bet_logits)
 
         action_dist = log_softmax(action_logits, dim=1)
         bet_dist = log_softmax(bet_logits, dim=1)

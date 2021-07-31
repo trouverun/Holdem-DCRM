@@ -5,6 +5,7 @@ from rpc import RL_pb2_grpc
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
+from multiprocessing import Event
 from ActorServer import Actor
 from LearnerServer import Learner
 
@@ -19,10 +20,10 @@ def _run_actor_server(bind_address, gpu_lock):
     server.wait_for_termination()
 
 
-def _run_learner_server(bind_address, gpu_lock):
+def _run_learner_server(bind_address, gpu_lock, ready):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
     server = grpc.server(ThreadPoolExecutor(max_workers=32), options=options)
-    RL_pb2_grpc.add_LearnerServicer_to_server(Learner(gpu_lock), server)
+    RL_pb2_grpc.add_LearnerServicer_to_server(Learner(gpu_lock, ready), server)
     server.add_insecure_port(bind_address)
     server.start()
     logging.info("Server serving at %s", bind_address)
@@ -32,11 +33,13 @@ def _run_learner_server(bind_address, gpu_lock):
 def serve():
     processes = []
     gpu_lock = Lock()
-    processes.append(multiprocessing.Process(target=_run_learner_server, args=("localhost:50051", gpu_lock,)))
+    ready = Event()
+    processes.append(multiprocessing.Process(target=_run_learner_server, args=("localhost:50051", gpu_lock, ready)))
     processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50050", gpu_lock,)))
-    for p in processes:
+    for i, p in enumerate(processes):
         p.start()
-        time.sleep(2)
+        if i == 0:
+            ready.wait()
     for p in processes:
         p.join()
 

@@ -74,8 +74,6 @@ class Actor(RL_pb2_grpc.ActorServicer):
             else:
                 self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.strategy_versions[player]))
                 action_predictions, bet_predictions = self.strategy_net(observations, counts)
-                action_predictions = torch.sigmoid(action_predictions)
-                bet_predictions = torch.sigmoid(bet_predictions)
             self.gpu_lock.release()
             self.player_locks[type][player].acquire()
             self.action_predictions[type][player][current_batch] = action_predictions.detach().cpu().numpy()

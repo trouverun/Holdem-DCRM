@@ -150,13 +150,18 @@ class LearnerStub(object):
                 )
         self.TrainRegrets = channel.unary_unary(
                 '/Learner/TrainRegrets',
-                request_serializer=rpc_dot_RL__pb2.Who.SerializeToString,
+                request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
         self.TrainStrategy = channel.unary_unary(
                 '/Learner/TrainStrategy',
                 request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.AvailableStrategies = channel.unary_unary(
+                '/Learner/AvailableStrategies',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
                 )
 
 
@@ -187,6 +192,12 @@ class LearnerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def AvailableStrategies(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_LearnerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -202,13 +213,18 @@ def add_LearnerServicer_to_server(servicer, server):
             ),
             'TrainRegrets': grpc.unary_unary_rpc_method_handler(
                     servicer.TrainRegrets,
-                    request_deserializer=rpc_dot_RL__pb2.Who.FromString,
+                    request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
                     response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
             ),
             'TrainStrategy': grpc.unary_unary_rpc_method_handler(
                     servicer.TrainStrategy,
                     request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                     response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'AvailableStrategies': grpc.unary_unary_rpc_method_handler(
+                    servicer.AvailableStrategies,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -263,7 +279,7 @@ class Learner(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/Learner/TrainRegrets',
-            rpc_dot_RL__pb2.Who.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -281,6 +297,22 @@ class Learner(object):
         return grpc.experimental.unary_unary(request, target, '/Learner/TrainStrategy',
             rpc_dot_RL__pb2.Empty.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AvailableStrategies(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Learner/AvailableStrategies',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -24,7 +24,7 @@ N_PLAYERS = 2
 RANDOM_SEED = 1
 LOW_STACK_BBS = 50
 HIGH_STACK_BBS = 200
-HH_LOCATION = 'hands/'
+HH_LOCATION = '../hands/'
 INVALID_ACTION_PENALTY = 0
 
 
@@ -40,15 +40,21 @@ BET_BUCKETS = np.array([0.75, 1, 1.5, 2])                        # Which (additi
 
 
 # ---------------------------------------- CLIENT ----------------------------------------
+N_TRAVERSE_PROCESSES = 5
+N_CONC_TRAVERSALS_PER_PROCESS = 1
 N_QUE_PROCESS = 3
-CLIENT_SAMPLES_BATCH_SIZE = 1024                                 # Batch size for sampled regrets
+CLIENT_SAMPLES_MIN_BATCH_SIZE = 2*1024                                 # Batch size for sampled regrets
+EVAL_HH_FREQUENCY = 10000
+EVAL_ENVS_PER_PROCESS = 1000
+N_EVAL_HANDS = 100000
+N_EVAL_PROCESSES = 5
 
 
 # ---------------------------------------- SERVER ----------------------------------------
 RESERVOIR_SIZE = int(2e6)                                        # How many samples are stored in each reservoir
 DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
 MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies
-MAX_TRAIN_BATCH_SIZE = 1024*15                                   # Batch size when training networks
+MAX_TRAIN_BATCH_SIZE = 1024*10                                   # Batch size when training networks
 STATES_LOCATION = ''
 RESERVOIRS_LOCATION = ''
 
@@ -60,6 +66,6 @@ REGRET_LEARNING_RATE = 0.01
 STRATEGY_LEARNING_RATE = 0.01
 REGRET_WEIGHT_DECAY = 0.001
 STRATEGY_WEIGHT_DECAY = 0.001
-PATIENCE = 50
+PATIENCE = 30
 improvement_eps = 1.05
 

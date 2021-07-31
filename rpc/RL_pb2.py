@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0crpc/RL.proto\"w\n\x0bObservation\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\r\n\x05shape\x18\x04 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x05 \x01(\x05\"?\n\nPrediction\x12\x19\n\x11\x61\x63tion_prediction\x18\x01 \x01(\x0c\x12\x16\n\x0e\x62\x65t_prediction\x18\x02 \x01(\x0c\"\x9e\x01\n\x0bSampledData\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\x13\n\x0b\x61\x63tion_data\x18\x04 \x01(\x0c\x12\x10\n\x08\x62\x65t_data\x18\x05 \x01(\x0c\x12\r\n\x05shape\x18\x06 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x07 \x01(\x05\"\x15\n\x03Who\x12\x0e\n\x06player\x18\x01 \x01(\x05\"5\n\tSelection\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x18\n\x10strategy_version\x18\x02 \x01(\x05\"\x07\n\x05\x45mpty\"S\n\x11IterationSettings\x12\t\n\x01k\x18\x01 \x01(\x05\x12\x1e\n\x16traversals_per_process\x18\x02 \x01(\x05\x12\x13\n\x0bn_processes\x18\x03 \x01(\x05\"\x14\n\x12\x45valuationSettings\"\x1f\n\nIdentifier\x12\x11\n\tworker_id\x18\x01 \x01(\x05\x32\x7f\n\x05\x41\x63tor\x12\'\n\nGetRegrets\x12\x0c.Observation\x1a\x0b.Prediction\x12*\n\rGetStrategies\x12\x0c.Observation\x1a\x0b.Prediction\x12!\n\x0bSetStrategy\x12\n.Selection\x1a\x06.Empty2\x93\x01\n\x07Learner\x12\"\n\nAddRegrets\x12\x0c.SampledData\x1a\x06.Empty\x12%\n\rAddStrategies\x12\x0c.SampledData\x1a\x06.Empty\x12\x1c\n\x0cTrainRegrets\x12\x04.Who\x1a\x06.Empty\x12\x1f\n\rTrainStrategy\x12\x06.Empty\x1a\x06.Empty22\n\x06Master\x12(\n\x11\x43ompleteTraversal\x12\x0b.Identifier\x1a\x06.Empty2\x89\x01\n\x05Slave\x12$\n\rSetIdentifier\x12\x0b.Identifier\x1a\x06.Empty\x12+\n\rRunIterations\x12\x12.IterationSettings\x1a\x06.Empty\x12-\n\x0eRunEvaluations\x12\x13.EvaluationSettings\x1a\x06.Emptyb\x06proto3'
+  serialized_pb=b'\n\x0crpc/RL.proto\"w\n\x0bObservation\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\r\n\x05shape\x18\x04 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x05 \x01(\x05\"?\n\nPrediction\x12\x19\n\x11\x61\x63tion_prediction\x18\x01 \x01(\x0c\x12\x16\n\x0e\x62\x65t_prediction\x18\x02 \x01(\x0c\"\x9e\x01\n\x0bSampledData\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\x13\n\x0b\x61\x63tion_data\x18\x04 \x01(\x0c\x12\x10\n\x08\x62\x65t_data\x18\x05 \x01(\x0c\x12\r\n\x05shape\x18\x06 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x07 \x01(\x05\"\x1b\n\nIntMessage\x12\r\n\x05value\x18\x01 \x01(\x05\"5\n\tSelection\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x18\n\x10strategy_version\x18\x02 \x01(\x05\"\x07\n\x05\x45mpty\"S\n\x11IterationSettings\x12\t\n\x01k\x18\x01 \x01(\x05\x12\x1e\n\x16traversals_per_process\x18\x02 \x01(\x05\x12\x13\n\x0bn_processes\x18\x03 \x01(\x05\"\x14\n\x12\x45valuationSettings\"\x1f\n\nIdentifier\x12\x11\n\tworker_id\x18\x01 \x01(\x05\x32\x7f\n\x05\x41\x63tor\x12\'\n\nGetRegrets\x12\x0c.Observation\x1a\x0b.Prediction\x12*\n\rGetStrategies\x12\x0c.Observation\x1a\x0b.Prediction\x12!\n\x0bSetStrategy\x12\n.Selection\x1a\x06.Empty2\xc6\x01\n\x07Learner\x12\"\n\nAddRegrets\x12\x0c.SampledData\x1a\x06.Empty\x12%\n\rAddStrategies\x12\x0c.SampledData\x1a\x06.Empty\x12#\n\x0cTrainRegrets\x12\x0b.IntMessage\x1a\x06.Empty\x12\x1f\n\rTrainStrategy\x12\x06.Empty\x1a\x06.Empty\x12*\n\x13\x41vailableStrategies\x12\x06.Empty\x1a\x0b.IntMessage22\n\x06Master\x12(\n\x11\x43ompleteTraversal\x12\x0b.Identifier\x1a\x06.Empty2\x89\x01\n\x05Slave\x12$\n\rSetIdentifier\x12\x0b.Identifier\x1a\x06.Empty\x12+\n\rRunIterations\x12\x12.IterationSettings\x1a\x06.Empty\x12-\n\x0eRunEvaluations\x12\x13.EvaluationSettings\x1a\x06.Emptyb\x06proto3'
 )
 
 
@@ -198,16 +198,16 @@ _SAMPLEDDATA = _descriptor.Descriptor(
 )
 
 
-_WHO = _descriptor.Descriptor(
-  name='Who',
-  full_name='Who',
+_INTMESSAGE = _descriptor.Descriptor(
+  name='IntMessage',
+  full_name='IntMessage',
   filename=None,
   file=DESCRIPTOR,
   containing_type=None,
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='player', full_name='Who.player', index=0,
+      name='value', full_name='IntMessage.value', index=0,
       number=1, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -226,7 +226,7 @@ _WHO = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=363,
-  serialized_end=384,
+  serialized_end=390,
 )
 
 
@@ -264,8 +264,8 @@ _SELECTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=386,
-  serialized_end=439,
+  serialized_start=392,
+  serialized_end=445,
 )
 
 
@@ -289,8 +289,8 @@ _EMPTY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=441,
-  serialized_end=448,
+  serialized_start=447,
+  serialized_end=454,
 )
 
 
@@ -335,8 +335,8 @@ _ITERATIONSETTINGS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=450,
-  serialized_end=533,
+  serialized_start=456,
+  serialized_end=539,
 )
 
 
@@ -360,8 +360,8 @@ _EVALUATIONSETTINGS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=535,
-  serialized_end=555,
+  serialized_start=541,
+  serialized_end=561,
 )
 
 
@@ -392,14 +392,14 @@ _IDENTIFIER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=557,
-  serialized_end=588,
+  serialized_start=563,
+  serialized_end=594,
 )
 
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
 DESCRIPTOR.message_types_by_name['Prediction'] = _PREDICTION
 DESCRIPTOR.message_types_by_name['SampledData'] = _SAMPLEDDATA
-DESCRIPTOR.message_types_by_name['Who'] = _WHO
+DESCRIPTOR.message_types_by_name['IntMessage'] = _INTMESSAGE
 DESCRIPTOR.message_types_by_name['Selection'] = _SELECTION
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 DESCRIPTOR.message_types_by_name['IterationSettings'] = _ITERATIONSETTINGS
@@ -428,12 +428,12 @@ SampledData = _reflection.GeneratedProtocolMessageType('SampledData', (_message.
   })
 _sym_db.RegisterMessage(SampledData)
 
-Who = _reflection.GeneratedProtocolMessageType('Who', (_message.Message,), {
-  'DESCRIPTOR' : _WHO,
+IntMessage = _reflection.GeneratedProtocolMessageType('IntMessage', (_message.Message,), {
+  'DESCRIPTOR' : _INTMESSAGE,
   '__module__' : 'rpc.RL_pb2'
-  # @@protoc_insertion_point(class_scope:Who)
+  # @@protoc_insertion_point(class_scope:IntMessage)
   })
-_sym_db.RegisterMessage(Who)
+_sym_db.RegisterMessage(IntMessage)
 
 Selection = _reflection.GeneratedProtocolMessageType('Selection', (_message.Message,), {
   'DESCRIPTOR' : _SELECTION,
@@ -479,8 +479,8 @@ _ACTOR = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=590,
-  serialized_end=717,
+  serialized_start=596,
+  serialized_end=723,
   methods=[
   _descriptor.MethodDescriptor(
     name='GetRegrets',
@@ -525,8 +525,8 @@ _LEARNER = _descriptor.ServiceDescriptor(
   index=1,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=720,
-  serialized_end=867,
+  serialized_start=726,
+  serialized_end=924,
   methods=[
   _descriptor.MethodDescriptor(
     name='AddRegrets',
@@ -553,7 +553,7 @@ _LEARNER = _descriptor.ServiceDescriptor(
     full_name='Learner.TrainRegrets',
     index=2,
     containing_service=None,
-    input_type=_WHO,
+    input_type=_INTMESSAGE,
     output_type=_EMPTY,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
@@ -565,6 +565,16 @@ _LEARNER = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_EMPTY,
     output_type=_EMPTY,
+    serialized_options=None,
+    create_key=_descriptor._internal_create_key,
+  ),
+  _descriptor.MethodDescriptor(
+    name='AvailableStrategies',
+    full_name='Learner.AvailableStrategies',
+    index=4,
+    containing_service=None,
+    input_type=_EMPTY,
+    output_type=_INTMESSAGE,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),
@@ -581,8 +591,8 @@ _MASTER = _descriptor.ServiceDescriptor(
   index=2,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=869,
-  serialized_end=919,
+  serialized_start=926,
+  serialized_end=976,
   methods=[
   _descriptor.MethodDescriptor(
     name='CompleteTraversal',
@@ -607,8 +617,8 @@ _SLAVE = _descriptor.ServiceDescriptor(
   index=3,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=922,
-  serialized_end=1059,
+  serialized_start=979,
+  serialized_end=1116,
   methods=[
   _descriptor.MethodDescriptor(
     name='SetIdentifier',

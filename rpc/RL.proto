@@ -23,8 +23,8 @@ message SampledData {
     int32 sequence_length = 7;
 }
 
-message Who {
-    int32 player = 1;
+message IntMessage {
+    int32 value = 1;
 }
 
 message Selection {
@@ -45,8 +45,9 @@ service Actor {
 service Learner {
     rpc AddRegrets(SampledData) returns (Empty);
     rpc AddStrategies(SampledData) returns (Empty);
-    rpc TrainRegrets(Who) returns (Empty);
+    rpc TrainRegrets(IntMessage) returns (Empty);
     rpc TrainStrategy(Empty) returns (Empty);
+    rpc AvailableStrategies(Empty) returns (IntMessage);
 }
 
 message IterationSettings {

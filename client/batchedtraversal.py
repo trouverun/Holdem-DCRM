@@ -1,5 +1,4 @@
 import copy
-import logging
 import numpy as np
 import pokerenv.obs_indices as indices
 from pokerenv.table import Table
@@ -8,7 +7,6 @@ from config import N_PLAYERS, LOW_STACK_BBS, HIGH_STACK_BBS, HH_LOCATION, INVALI
     N_BET_BUCKETS, BET_BUCKETS, N_ACTIONS
 
 
-# Container class for multiple counterfactual regret minimization traversals
 class BatchedTraversal:
     def __init__(self, n_traversals, traverser, regret_que, strategy_ques):
         assert 0 <= traverser < N_PLAYERS
@@ -20,6 +18,15 @@ class BatchedTraversal:
         self.all_nodes = dict()
         # Set of nodes that need to have their predicted regrets added, and possible child nodes expanded
         self.waiting_nodes = set()
+
+        self.regret_obs_list = []
+        self.regret_obs_count_list = []
+        self.regret_action_list = []
+        self.regret_bet_list = []
+        self.strategy_obs_list = [[] for _ in range(N_PLAYERS)]
+        self.strategy_obs_count_list = [[] for _ in range(N_PLAYERS)]
+        self.strategy_action_list = [[] for _ in range(N_PLAYERS)]
+        self.strategy_bet_list = [[] for _ in range(N_PLAYERS)]
 
     def reset(self):
         self.all_nodes.clear()
@@ -54,7 +61,6 @@ class BatchedTraversal:
             # If required, calculate the expected value for the parent node, or directly propagate the reward one step further
             was_action_dont_care = node.action_type is None
             if parent.acting_player == self.traverser and not was_action_dont_care:
-                # If the bet bucket is not None, we need to update the reward for the bet that vas chosen
                 if node.bet_bucket is not None:
                     parent.rewards_bet[node.bet_bucket] = reward
                     parent.n_rewards_left_bet -= 1
@@ -76,7 +82,7 @@ class BatchedTraversal:
                     bet_sizes = np.concatenate(
                         [np.array([min_bet, (min_bet + max_bet) / 2, max_bet]), BET_BUCKETS * obs[indices.POT_SIZE]])
                     invalid_bets = np.logical_or(min_bet > bet_sizes, bet_sizes > max_bet)
-                    # Calculate regrets (and set invalid action regrets to 0)
+                    # Calculate the regrets (and set invalid action/bet regrets to 0)
                     expected_reward = (parent.pi_action * parent.rewards_action).sum()
                     action_regrets = parent.rewards_action - expected_reward
                     action_regrets[np.argwhere(valid_actions == 0)] = 0
@@ -86,7 +92,10 @@ class BatchedTraversal:
                         bet_regrets[invalid_bets] = 0
                     else:
                         bet_regrets = np.zeros(N_BET_BUCKETS, dtype=np.float32)
-                    self.regret_que.put((parent.observation_history, parent.observation_count, action_regrets, bet_regrets))
+                    self.regret_obs_list.append(parent.observation_history)
+                    self.regret_obs_count_list.append(parent.observation_count)
+                    self.regret_action_list.append(action_regrets)
+                    self.regret_bet_list.append(bet_regrets)
                     self._propagate_reward(parent, expected_reward)
                     self.all_nodes.pop(node.id)
                 break
@@ -163,7 +172,10 @@ class BatchedTraversal:
             new_node = self.all_nodes[self.node_n]
             obs, obs_count, reward, done = new_node.step(previous_observation, parent_is_traverser, action_dont_care)
             if not parent_is_traverser:
-                self.strategy_ques[node.acting_player].put((node.observation_history, node.observation_count, node.pi_action, node.pi_bet))
+                self.strategy_obs_list[node.acting_player].append(node.observation_history)
+                self.strategy_obs_count_list[node.acting_player].append(node.observation_count)
+                self.strategy_action_list[node.acting_player].append(node.pi_action)
+                self.strategy_bet_list[node.acting_player].append(node.pi_bet)
             if not done:
                 self.waiting_nodes.add(self.node_n)
                 observations[new_node.acting_player].append(obs)
@@ -172,6 +184,10 @@ class BatchedTraversal:
             else:
                 self._propagate_reward(new_node, reward)
             self.node_n += 1
+
+        self.regret_que.put((self.regret_obs_list, self.regret_obs_count_list, self.regret_action_list, self.regret_bet_list))
+        for player in range(N_PLAYERS):
+            self.strategy_ques[player].put((self.strategy_obs_list[player], self.strategy_obs_count_list[player], self.strategy_action_list[player], self.strategy_bet_list[player]))
         return observations, observation_counts, new_mappings
 
 
