@@ -71,3 +71,24 @@ end2 = time.time()
 
 print(end1-start1)
 print(end2-start2)
+
+for player in range(N_PLAYERS):
+    iter_que.put(('mode', 'traversal'))
+    traverse_processes = [
+        Process(target=traverse_process, args=(traverse_channels[n], N_CONC_TRAVERSALS_PER_PROCESS, loops_per_process, player,
+                                               regret_ques[player], strategy_ques, iter_que))
+        for n in range(N_TRAVERSE_PROCESSES)
+    ]
+    for p in traverse_processes:
+        process_count += 1
+        logging.debug("starting traversal process %d" % process_count)
+        p.start()
+    for p in traverse_processes:
+        p.join()
+        process_count -= 1
+        logging.debug("joined traversal process %d" % process_count)
+    logging.info("Training regrets for player %d" % player)
+    stub_learner.TrainRegrets(IntMessage(value=player))
+    iter_que.put(('reset', None))
+logging.info("Training strategy for iteration %d" % iteration)
+stub_learner.TrainStrategy(Empty())

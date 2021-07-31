@@ -97,7 +97,7 @@ def traverse_process(channel, traversals_per_process, loops_per_process, travers
                 action_regrets[player] = ar
                 bet_regrets[player] = br
             obs, obs_counts, mapping = bt.step(action_regrets, bet_regrets, mapping)
-        iter_que.put(('increment', None))
+        iter_que.put(('complete', None))
 
 
 def create_env_fn():
@@ -124,7 +124,7 @@ def eval_process(channel, envs_per_process, hands_per_process, que):
         obs, obs_counts, mapping, rewards = be.step(p_actions, p_bets, mapping)
         hands_played += len(rewards)
         total_winnings += rewards.sum()
-    que.put(('increment', (hands_played, total_winnings)))
+    que.put(('complete', (hands_played, total_winnings)))
 
 
 def tracker_process(k, queue, result_que):
@@ -145,7 +145,7 @@ def tracker_process(k, queue, result_que):
                 result_que.put(eval_reward/(current_n_eval_hands/100))
                 eval_reward = 0
                 current_n_eval_hands = 0
-        elif command == 'increment':
+        elif command == 'complete':
             if mode == 'traversal':
                 traversals += 1
                 logging.info("Traversals completed %d / %d" % (traversals, k))
@@ -159,13 +159,91 @@ def tracker_process(k, queue, result_que):
             raise ValueError("Invalid command %s received by tracker process when operating in %s mode" % (command, mode))
 
 
+def traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, strategy_ques, stub_learner, iteration):
+    process_count = 0
+    for player in range(N_PLAYERS):
+        iter_que.put(('mode', 'traversal'))
+        traverse_processes = [
+            Process(target=traverse_process, args=(traverse_channels[n], N_CONC_TRAVERSALS_PER_PROCESS, loops_per_process, player,
+                                                   regret_ques[player], strategy_ques, iter_que))
+            for n in range(N_TRAVERSE_PROCESSES)
+        ]
+        for p in traverse_processes:
+            process_count += 1
+            logging.debug("starting traversal process %d" % process_count)
+            p.start()
+        for p in traverse_processes:
+            p.join()
+            process_count -= 1
+            logging.debug("joined traversal process %d" % process_count)
+        logging.info("Training regrets for player %d" % player)
+        stub_learner.TrainRegrets(IntMessage(value=player))
+        iter_que.put(('reset', None))
+    logging.info("Training strategy for iteration %d" % iteration)
+    stub_learner.TrainStrategy(Empty())
+
+
+def eval_loop(stub_learner, iter_que, eval_channels, process_count, options, result_que):
+    evaluation_names = ['previous', 'last3', 'random5']
+    a_channel = grpc.insecure_channel('localhost:50050', options)
+    stub_actor = ActorStub(a_channel)
+
+    response = stub_learner.AvailableStrategies(Empty())
+    n_strategies = response.value + 1
+    stub_actor.SetStrategy(Selection(player=0, strategy_version=n_strategies - 1))
+    iter_que.put(('mode', 'evaluation'))
+    for evaluation_name in evaluation_names:
+        logging.info("Evaluating new strategy against: '%s'" % evaluation_name)
+        loops = 1
+        if evaluation_name == 'last3':
+            if n_strategies < 4:
+                continue
+            loops = 3
+            strategies = np.arange(n_strategies - 4, n_strategies)
+        elif evaluation_name == 'random5':
+            if n_strategies < 6:
+                continue
+            loops = 5
+            strategies = np.random.choice(np.arange(n_strategies), 5, replace=False)
+        elif evaluation_name == 'previous':
+            if n_strategies < 2:
+                continue
+            strategies = [n_strategies - 2]
+        else:
+            raise Exception("Eval name not recognized")
+        rewards = np.zeros(loops)
+        for loop in range(loops):
+            for player in range(N_PLAYERS):
+                if player == 0:
+                    continue
+                stub_actor.SetStrategy(Selection(player=player, strategy_version=strategies[loop]))
+            # Destroy parent grpc to make multiprocessing work correctly
+            a_channel.close()
+            eval_processes = [
+                Process(target=eval_process,
+                        args=(eval_channels[n], EVAL_ENVS_PER_PROCESS, int(N_EVAL_HANDS / N_EVAL_PROCESSES), iter_que))
+                for n in range(N_EVAL_PROCESSES)
+            ]
+            for p in eval_processes:
+                process_count += 1
+                logging.debug("starting evaluation process %d" % process_count)
+                p.start()
+            for p in eval_processes:
+                p.join()
+                process_count -= 1
+                logging.debug("joined evaluation process %d" % process_count)
+            a_channel = grpc.insecure_channel('localhost:50050', options)
+            stub_actor = ActorStub(a_channel)
+            iter_que.put(('reset', None))
+            reward = result_que.get()
+            rewards[loop] = reward
+        logging.info("Evaluation %s result was average winnings of %f bb/100hands (sample size = %d)" % (
+        evaluation_name, rewards.mean(), loops * N_EVAL_HANDS))
+
+
 def deep_cfr(iterations, k):
     loops_per_process = int(k / (N_CONC_TRAVERSALS_PER_PROCESS*N_TRAVERSE_PROCESSES))
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    a_channel = grpc.insecure_channel('localhost:50050', options)
-    l_channel = grpc.insecure_channel('localhost:50051', options)
-    stub_actor = ActorStub(a_channel)
-    stub_learner = LearnerStub(l_channel)
     traverse_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(N_TRAVERSE_PROCESSES)]
     eval_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(N_EVAL_PROCESSES)]
     regret_ques = [Queue() for _ in range(N_PLAYERS)]
@@ -176,87 +254,18 @@ def deep_cfr(iterations, k):
     iter_track_process.start()
     process_count = 0
 
-    evaluation_names = ['previous', 'last3', 'random5']
-
     que_processors = [Process(target=clear_queue_process, args=(regret_ques, strategy_ques)) for _ in range(N_QUE_PROCESS)]
     for p in que_processors:
         p.start()
 
     for iteration in range(iterations):
         start = time.time()
-        for player in range(N_PLAYERS):
-            iter_que.put(('mode', 'traversal'))
-            traverse_processes = [
-                Process(target=traverse_process, args=(traverse_channels[n], N_CONC_TRAVERSALS_PER_PROCESS, loops_per_process, player,
-                                                       regret_ques[player], strategy_ques, iter_que))
-                for n in range(N_TRAVERSE_PROCESSES)
-            ]
-            for p in traverse_processes:
-                process_count += 1
-                logging.debug("starting traversal process %d" % process_count)
-                p.start()
-            for p in traverse_processes:
-                p.join()
-                process_count -= 1
-                logging.debug("joined traversal process %d" % process_count)
-            logging.info("Training regrets for player %d" % player)
-            stub_learner.TrainRegrets(IntMessage(value=player))
-            iter_que.put(('reset', None))
-        logging.info("Training strategy for iteration %d" % iteration)
-        stub_learner.TrainStrategy(Empty())
-
-        response = stub_learner.AvailableStrategies(Empty())
-        n_strategies = response.value+1
-        stub_actor.SetStrategy(Selection(player=0, strategy_version=n_strategies-1))
-        iter_que.put(('mode', 'evaluation'))
-        for evaluation_name in evaluation_names:
-            logging.info("Evaluating new strategy against: '%s'" % evaluation_name)
-            loops = 1
-            if evaluation_name == 'last3':
-                if n_strategies < 4:
-                    continue
-                loops = 3
-                strategies = np.arange(n_strategies-4, n_strategies)
-            elif evaluation_name == 'random5':
-                if n_strategies < 6:
-                    continue
-                loops = 5
-                strategies = np.random.choice(np.arange(n_strategies), 5, replace=False)
-            elif evaluation_name == 'previous':
-                if n_strategies < 2:
-                    continue
-                strategies = [n_strategies-2]
-            else:
-                raise Exception("Eval name not recognized")
-            rewards = np.zeros(loops)
-            for loop in range(loops):
-                for player in range(N_PLAYERS):
-                    if player == 0:
-                        continue
-                    stub_actor.SetStrategy(Selection(player=player, strategy_version=strategies[loop]))
-                a_channel.close()
-                l_channel.close()
-                eval_processes = [
-                    Process(target=eval_process,
-                            args=(eval_channels[n], EVAL_ENVS_PER_PROCESS, int(N_EVAL_HANDS / N_EVAL_PROCESSES), iter_que))
-                    for n in range(N_EVAL_PROCESSES)
-                ]
-                for p in eval_processes:
-                    process_count += 1
-                    logging.debug("starting evaluation process %d" % process_count)
-                    p.start()
-                for p in eval_processes:
-                    p.join()
-                    process_count -= 1
-                    logging.debug("joined evaluation process %d" % process_count)
-                a_channel = grpc.insecure_channel('localhost:50050', options)
-                stub_actor = ActorStub(a_channel)
-                l_channel = grpc.insecure_channel('localhost:50051', options)
-                stub_learner = LearnerStub(l_channel)
-                iter_que.put(('reset', None))
-                reward = result_que.get()
-                rewards[loop] = reward
-            logging.info("Evaluation %s result was average winnings of %f bb/100hands (sample size = %d)" % (evaluation_name, rewards.mean(), loops*N_EVAL_HANDS))
+        l_channel = grpc.insecure_channel('localhost:50051', options)
+        stub_learner = LearnerStub(l_channel)
+        traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, strategy_ques, stub_learner, iteration)
+        # Destroy parent grpc to make multiprocessing work correctly
+        l_channel.close()
+        eval_loop(stub_learner, iter_que, eval_channels, process_count, options, result_que)
         end = time.time()
         logging.info("One iteration took %fs" % (end - start))
 
