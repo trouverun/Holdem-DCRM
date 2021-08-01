@@ -61,7 +61,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
         # pre train to (mostly) 0 regret
         # TODO: smarter solution
         n_samples = int(1e4)
-        junkobs = np.random.randint(-200, 200, [n_samples, SEQUENCE_LENGTH, OBS_SHAPE])
+        junkobs = np.random.randint(0, 200, [n_samples, SEQUENCE_LENGTH, OBS_SHAPE])
         junkcounts = np.random.randint(1, 6, [n_samples, 1])
         a_labels = np.zeros([n_samples, N_ACTIONS])
         b_labels = np.zeros([n_samples, N_BET_BUCKETS])
@@ -122,7 +122,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.regret_bets[player][count:count + obs.shape[0]] = bets
                 self.regret_sample_counts[player] += obs.shape[0]
             else:
-                should_replace = np.random.uniform(obs.shape[0]) > (1 - RESERVOIR_SIZE / count)
+                should_replace = (np.random.uniform(0, 1, obs.shape[0]) > (1 - RESERVOIR_SIZE / count)).astype(np.int32)
                 replace_indices = np.random.choice(np.arange(RESERVOIR_SIZE), np.count_nonzero(should_replace), replace=False)
                 self.regret_observations[player][replace_indices] = obs[should_replace.nonzero()]
                 self.regret_observation_counts[player][replace_indices] = counts[should_replace.nonzero()]
@@ -181,7 +181,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.strategy_bets[count:count + obs.shape[0]] = bets
                 self.strategy_sample_count += obs.shape[0]
             else:
-                should_replace = np.random.uniform(obs.shape[0]) > (1 - RESERVOIR_SIZE / count)
+                should_replace = (np.random.uniform(0, 1, obs.shape[0]) > (1 - RESERVOIR_SIZE / count)).astype(np.int32)
                 replace_indices = np.random.choice(np.arange(RESERVOIR_SIZE), np.count_nonzero(should_replace), replace=False)
                 self.strategy_observations[replace_indices] = obs[should_replace.nonzero()]
                 self.strategy_observation_counts[replace_indices] = counts[should_replace.nonzero()]

@@ -237,7 +237,7 @@ def eval_loop(stub_learner, iter_que, eval_channels, process_count, options, res
             iter_que.put(('reset', None))
             reward = result_que.get()
             rewards[loop] = reward
-        logging.info("Evaluation %s result was average winnings of %f bb/100hands (sample size = %d)" % (
+        logging.info("Evaluation against '%s': average winnings of %f bb/100hands (sample size = %d)" % (
         evaluation_name, rewards.mean(), loops * N_EVAL_HANDS))
 
 

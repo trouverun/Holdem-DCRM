@@ -1,12 +1,13 @@
 import logging
 import torch
 import numpy as np
+import time
 from rpc import RL_pb2_grpc
 from rpc.RL_pb2 import Prediction, Empty
 from collections import namedtuple
 from queue import Queue
 from threading import Lock, Event, Thread
-from config import N_PLAYERS, MAX_INFERENCE_BATCH_SIZE, OBS_SHAPE, DATA_PROCESS_TIMEOUT
+from config import N_PLAYERS, MAX_INFERENCE_BATCH_SIZE, OBS_SHAPE, DATA_PROCESS_TIMEOUT, SEQUENCE_LENGTH
 from networks import RegretNetwork, StrategyNetwork
 
 Observations = namedtuple("Observations", "obs count")
@@ -22,6 +23,8 @@ class Actor(RL_pb2_grpc.ActorServicer):
         self.player_locks = [[Lock() for _ in range(N_PLAYERS)] for type in types]
         self.current_batch_ids = [np.zeros(N_PLAYERS, dtype=np.int32) for type in types]
         self.current_batch_sizes = [[[0] for _ in range(N_PLAYERS)] for type in types]
+        self.tmp_batch_obs = [[np.zeros([MAX_INFERENCE_BATCH_SIZE, SEQUENCE_LENGTH, OBS_SHAPE]) for _ in range(N_PLAYERS)] for type in types]
+        self.tmp_batch_obs_count = [[np.zeros([MAX_INFERENCE_BATCH_SIZE]) for _ in range(N_PLAYERS)] for type in types]
         self.observations_que = [[Queue() for _ in range(N_PLAYERS)] for type in types]
         self.data_added_events = [[[Event()] for _ in range(N_PLAYERS)] for type in types]
         self.batch_full_events = [[[Event()] for _ in range(N_PLAYERS)] for type in types]
@@ -39,6 +42,20 @@ class Actor(RL_pb2_grpc.ActorServicer):
             Thread(target=self._process_batch_thread, args=(i, REGRET)).start()
             Thread(target=self._process_batch_thread, args=(i, STRATEGY)).start()
 
+    def _complete_batch(self, type, player):
+        current_batch = self.current_batch_ids[type][player]
+        current_batch_size = self.current_batch_sizes[type][player][current_batch]
+        self.observations_que[type][player].put((self.tmp_batch_obs[type][player][:current_batch_size], self.tmp_batch_obs_count[type][player][:current_batch_size]))
+        self.tmp_batch_obs[type][player] = np.zeros([MAX_INFERENCE_BATCH_SIZE, SEQUENCE_LENGTH, OBS_SHAPE])
+        self.tmp_batch_obs_count[type][player] = np.zeros([MAX_INFERENCE_BATCH_SIZE])
+        self.current_batch_ids[type][player] += 1
+        # Add required entries for the next batch
+        self.current_batch_sizes[type][player].append(0)
+        self.batch_read_counts[type][player].append(0)
+        self.batch_ready_events[type][player].append(Event())
+        self.batch_full_events[type][player].append(Event())
+        self.data_added_events[type][player].append(Event())
+
     def _process_batch_thread(self, player, type):
         logging.info("Started %s inference data processing thread for player %d" % (types[type], player))
         current_batch = 0
@@ -50,24 +67,13 @@ class Actor(RL_pb2_grpc.ActorServicer):
             this_batch_size = self.current_batch_sizes[type][player][current_batch]
             # If we arrived here by timing out above, we need to set the current batch as consumed, so that we no longer add data to it
             if this_batch_size != MAX_INFERENCE_BATCH_SIZE:
-                self.current_batch_ids[type][player] += 1
-                # Add required entries for the next batch
-                self.current_batch_sizes[type][player].append(0)
-                self.batch_read_counts[type][player].append(0)
-                self.batch_ready_events[type][player].append(Event())
-                self.batch_full_events[type][player].append(Event())
-                self.data_added_events[type][player].append(Event())
+                self._complete_batch(type, player)
             self.player_locks[type][player].release()
             logging.debug("Processing %s batch size of: %d, for player: %d" % (types[type], this_batch_size, player))
-            observations = []
-            counts = []
-            for i in range(this_batch_size):
-                item = self.observations_que[type][player].get()
-                observations.append(item.obs)
-                counts.append(item.count)
+            observations, counts = self.observations_que[type][player].get()
             self.gpu_lock.acquire()
-            observations = torch.from_numpy(np.asarray(observations)).type(torch.FloatTensor).to(self.device)
-            counts = torch.from_numpy(np.asarray(counts)).type(torch.LongTensor)
+            observations = torch.from_numpy(observations[:this_batch_size]).type(torch.FloatTensor).to(self.device)
+            counts = torch.from_numpy(counts[:this_batch_size]).type(torch.LongTensor)
             if type == REGRET:
                 self.regret_net.load_state_dict(torch.load('../states/regret_net_player_%d' % player))
                 action_predictions, bet_predictions = self.regret_net(observations, counts)
@@ -90,39 +96,36 @@ class Actor(RL_pb2_grpc.ActorServicer):
         if len(observations) + self.current_batch_sizes[type][player][current_batch] >= MAX_INFERENCE_BATCH_SIZE:
             consumed = 0
             remaining = len(observations)
-            space_left = MAX_INFERENCE_BATCH_SIZE - self.current_batch_sizes[type][player][current_batch]
+            current_batch_size = self.current_batch_sizes[type][player][current_batch]
+            space_left = MAX_INFERENCE_BATCH_SIZE - current_batch_size
             while remaining >= space_left:
                 batch_ids.append(self.current_batch_ids[type][player])
                 indices.append([*range(self.current_batch_sizes[type][player][current_batch], MAX_INFERENCE_BATCH_SIZE)])
-                consumed += MAX_INFERENCE_BATCH_SIZE - self.current_batch_sizes[type][player][current_batch]
-                remaining = len(observations) - consumed
                 self.current_batch_sizes[type][player][current_batch] = MAX_INFERENCE_BATCH_SIZE
+                self.tmp_batch_obs[type][player][current_batch_size:MAX_INFERENCE_BATCH_SIZE](observations[consumed:consumed + space_left])
+                self.tmp_batch_obs_count[type][player][current_batch_size:MAX_INFERENCE_BATCH_SIZE].append(counts[consumed:consumed + space_left])
+                self._complete_batch(type, player)
                 self.data_added_events[type][player][current_batch].set()
                 self.batch_full_events[type][player][current_batch].set()
-                self.current_batch_sizes[type][player].append(0)
-                self.batch_read_counts[type][player].append(0)
-                for i in range(0, space_left):
-                    self.observations_que[type][player].put(Observations(observations[i], counts[i]))
-                self.batch_ready_events[type][player].append(Event())
-                self.batch_full_events[type][player].append(Event())
-                self.data_added_events[type][player].append(Event())
+                current_batch_size = 0
                 current_batch += 1
-                self.current_batch_ids[type][player] = current_batch
+                consumed += space_left
                 space_left = MAX_INFERENCE_BATCH_SIZE
+                remaining = len(observations) - consumed
             if remaining > 0:
                 batch_ids.append(self.current_batch_ids[type][player])
                 indices.append([*range(0, remaining)])
                 self.current_batch_sizes[type][player][current_batch] = remaining
-                for i in range(consumed, len(observations)):
-                    self.observations_que[type][player].put(Observations(observations[i], counts[i]))
+                self.tmp_batch_obs[type][player][0:remaining] = observations[consumed:consumed + remaining]
+                self.tmp_batch_obs_count[type][player][0:remaining] = counts[consumed:consumed + remaining]
                 self.data_added_events[type][player][current_batch].set()
         else:
             current_batch = self.current_batch_ids[type][player]
             batch_ids.append(current_batch)
             current_batch_size = self.current_batch_sizes[type][player][current_batch]
             indices.append([*range(current_batch_size, current_batch_size+len(observations))])
-            for i in range(0, len(observations)):
-                self.observations_que[type][player].put(Observations(observations[i], counts[i]))
+            self.tmp_batch_obs[type][player][current_batch_size:current_batch_size+len(observations)] = observations
+            self.tmp_batch_obs_count[type][player][current_batch_size:current_batch_size+len(observations)] = counts
             self.current_batch_sizes[type][player][current_batch] += len(observations)
             self.data_added_events[type][player][current_batch].set()
         self.player_locks[type][player].release()

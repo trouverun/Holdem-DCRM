@@ -43,7 +43,7 @@ BET_BUCKETS = np.array([0.75, 1, 1.5, 2])                        # Which (additi
 N_TRAVERSE_PROCESSES = 5
 N_CONC_TRAVERSALS_PER_PROCESS = 1
 N_QUE_PROCESS = 3
-CLIENT_SAMPLES_MIN_BATCH_SIZE = 2*1024                                 # Batch size for sampled regrets
+CLIENT_SAMPLES_MIN_BATCH_SIZE = 5*1024                                 # Batch size for sampled regrets
 EVAL_HH_FREQUENCY = 10000
 EVAL_ENVS_PER_PROCESS = 1000
 N_EVAL_HANDS = 100000
@@ -51,7 +51,7 @@ N_EVAL_PROCESSES = 5
 
 
 # ---------------------------------------- SERVER ----------------------------------------
-RESERVOIR_SIZE = int(2e6)                                        # How many samples are stored in each reservoir
+RESERVOIR_SIZE = int(5e6)                                        # How many samples are stored in each reservoir
 DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
 MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies
 MAX_TRAIN_BATCH_SIZE = 1024*10                                   # Batch size when training networks
@@ -61,11 +61,11 @@ RESERVOIRS_LOCATION = ''
 
 # --------------------------------- NETWORKS & TRAINING ----------------------------------
 RNN_HIDDENS = 2048
-N_EPOCHS = 1000
+N_EPOCHS = 50
 REGRET_LEARNING_RATE = 0.01
 STRATEGY_LEARNING_RATE = 0.01
 REGRET_WEIGHT_DECAY = 0.001
 STRATEGY_WEIGHT_DECAY = 0.001
-PATIENCE = 30
+PATIENCE = 25
 improvement_eps = 1.05
 

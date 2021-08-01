@@ -15,7 +15,7 @@ def step_1(que):
         data3.append(np.zeros(4))
         data4.append(np.zeros(7))
 
-    que.put((data1, data2, data3, data4))
+    que.put((data1.copy(), data2.copy(), data3.copy(), data4.copy()))
 
 
 def step_2(que):
@@ -56,39 +56,23 @@ def process_data_2(que):
 
 
 que = Queue()
-
-start1 = time.time()
-step_1(que)
-que.put((None, None, None, None))
-process_data_1(que)
-end1 = time.time()
-
-start2 = time.time()
-step_2(que)
-que.put((None, None, None, None))
-process_data_2(que)
-end2 = time.time()
-
-print(end1-start1)
-print(end2-start2)
-
-for player in range(N_PLAYERS):
-    iter_que.put(('mode', 'traversal'))
-    traverse_processes = [
-        Process(target=traverse_process, args=(traverse_channels[n], N_CONC_TRAVERSALS_PER_PROCESS, loops_per_process, player,
-                                               regret_ques[player], strategy_ques, iter_que))
-        for n in range(N_TRAVERSE_PROCESSES)
-    ]
-    for p in traverse_processes:
-        process_count += 1
-        logging.debug("starting traversal process %d" % process_count)
-        p.start()
-    for p in traverse_processes:
-        p.join()
-        process_count -= 1
-        logging.debug("joined traversal process %d" % process_count)
-    logging.info("Training regrets for player %d" % player)
-    stub_learner.TrainRegrets(IntMessage(value=player))
-    iter_que.put(('reset', None))
-logging.info("Training strategy for iteration %d" % iteration)
-stub_learner.TrainStrategy(Empty())
+a = np.ones(3)
+que.put(a[:2])
+a = np.zeros(3)
+b = que.get()
+print(b)
+#
+# start1 = time.time()
+# step_1(que)
+# que.put((None, None, None, None))
+# process_data_1(que)
+# end1 = time.time()
+#
+# start2 = time.time()
+# step_2(que)
+# que.put((None, None, None, None))
+# process_data_2(que)
+# end2 = time.time()
+#
+# print(end1-start1)
+# print(end2-start2)
