@@ -1,4 +1,5 @@
 import copy
+import logging
 import numpy as np
 import pokerenv.obs_indices as indices
 from pokerenv.table import Table
@@ -73,23 +74,14 @@ class BatchedTraversal:
                     parent.n_rewards_left_action -= 1
                 # Once all available actions have a sampled reward, we calculate the expected reward, and the regrets for each action
                 if parent.n_rewards_left_action == 0:
-                    # Extract needed info from the observation to check valid actions and bet sizes
-                    # TODO: do this in the node instead
-                    obs = parent.observation_history[parent.observation_count-1]
-                    valid_actions = obs[indices.VALID_ACTIONS]
-                    min_bet = obs[indices.VALID_BET_LOW]
-                    max_bet = obs[indices.VALID_BET_HIGH]
-                    bet_sizes = np.concatenate(
-                        [np.array([min_bet, (min_bet + max_bet) / 2, max_bet]), BET_BUCKETS * obs[indices.POT_SIZE]])
-                    invalid_bets = np.logical_or(min_bet > bet_sizes, bet_sizes > max_bet)
                     # Calculate the regrets (and set invalid action/bet regrets to 0)
                     expected_reward = (parent.pi_action * parent.rewards_action).sum()
                     action_regrets = parent.rewards_action - expected_reward
-                    action_regrets[np.argwhere(valid_actions == 0)] = 0
-                    if valid_actions[2]:
+                    action_regrets[np.argwhere(parent.valid_actions == 0)] = 0
+                    if parent.valid_actions[2]:
                         bet_expected_reward = parent.rewards_action[2]
                         bet_regrets = parent.rewards_bet - bet_expected_reward
-                        bet_regrets[invalid_bets] = 0
+                        bet_regrets[parent.invalid_bets] = 0
                     else:
                         bet_regrets = np.zeros(N_BET_BUCKETS, dtype=np.float32)
                     self.regret_obs_list.append(parent.observation_history)
@@ -214,6 +206,8 @@ class Node:
         # Behavior policies for acting and betting, calculated from predicted regrets
         self.pi_action = np.zeros(N_ACTIONS, dtype=np.float32)
         self.pi_bet = np.zeros(N_BET_BUCKETS, dtype=np.float32)
+        self.valid_actions = None
+        self.invalid_bets = None
 
     def reset(self):
         obs = self.env.reset()
@@ -225,12 +219,12 @@ class Node:
     def add_regrets(self, previous_obs, action_regrets, bet_regrets):
         action_regrets = action_regrets.copy()
         bet_regrets = bet_regrets.copy()
-        valid_actions = previous_obs[indices.VALID_ACTIONS]
+        self.valid_actions = previous_obs[indices.VALID_ACTIONS]
         min_bet = previous_obs[indices.VALID_BET_LOW]
         max_bet = previous_obs[indices.VALID_BET_HIGH]
         bet_sizes = np.concatenate(
             [np.array([min_bet, (min_bet + max_bet) / 2, max_bet]), BET_BUCKETS * previous_obs[indices.POT_SIZE]])
-        invalid_bets = np.logical_or(min_bet > bet_sizes, bet_sizes > max_bet)
+        self.invalid_bets = np.logical_or(min_bet > bet_sizes, bet_sizes > max_bet)
 
         # When all regrets are negative, select the least negative entry deterministically like in the DCRM paper
         if np.count_nonzero(action_regrets >= 0) == 0:
@@ -240,12 +234,12 @@ class Node:
         # Make the calculated policy probabilities sum to 1
         if np.count_nonzero(action_regrets) == 0:
             # If all regrets are zero, give all (valid) actions uniform probability
-            self.pi_action[np.argwhere(valid_actions == 1)] = 1 / np.count_nonzero(valid_actions)
+            self.pi_action[np.argwhere(self.valid_actions == 1)] = 1 / np.count_nonzero(self.valid_actions)
         else:
             self.pi_action = action_regrets / action_regrets.sum()
 
         # If bet action is not available bet pi should be all zeros (so bet loss will evaluate to 0 when training strategy network)
-        if valid_actions[2]:
+        if self.valid_actions[2]:
             # When all regrets are negative, select the least negative entry deterministically like in the DCRM paper
             if np.count_nonzero(bet_regrets >= 0) == 0:
                 chosen_i = bet_regrets.argmax()
@@ -254,7 +248,7 @@ class Node:
             # Make the calculated policy probabilities sum to 1
             if np.count_nonzero(bet_regrets) == 0:
                 # If all regrets are zero, give all (valid) bets uniform probability
-                self.pi_bet[np.logical_not(invalid_bets)] = 1 / np.count_nonzero(np.logical_not(invalid_bets))
+                self.pi_bet[np.logical_not(self.invalid_bets)] = 1 / np.count_nonzero(np.logical_not(self.invalid_bets))
             else:
                 self.pi_bet = bet_regrets / bet_regrets.sum()
 

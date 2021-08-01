@@ -1,5 +1,4 @@
 import grpc
-import argparse
 import numpy as np
 import logging
 import time
@@ -12,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pokerenv.table import Table
 from batchedenv import BatchedEnvironment
 from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_MIN_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS, N_QUE_PROCESS, EVAL_ENVS_PER_PROCESS, \
-    N_EVAL_HANDS, N_EVAL_PROCESSES, N_TRAVERSE_PROCESSES, N_CONC_TRAVERSALS_PER_PROCESS, HH_LOCATION
+    N_EVAL_HANDS, N_EVAL_PROCESSES, N_TRAVERSE_PROCESSES, N_CONC_TRAVERSALS_PER_PROCESS, HH_LOCATION, N_ITERATIONS, K
 
 
 def clear_queue_thread(player, channel, type, que):
@@ -34,7 +33,7 @@ def clear_queue_thread(player, channel, type, que):
             action_bytes = np.asarray(actions).tobytes()
             bet_bytes = np.asarray(bets).tobytes()
             sampled_proto = SampledData(player=player, observations=observations_bytes, observation_counts=player_obs_count_bytes,
-                                        action_data=action_bytes, bet_data=bet_bytes, shape=len(observations), sequence_length=5)
+                                        action_data=action_bytes, bet_data=bet_bytes, shape=len(observations), sequence_length=SEQUENCE_LENGTH)
             if type == "regret":
                 _ = stub.AddRegrets(sampled_proto)
             elif type == "strategy":
@@ -53,7 +52,6 @@ def clear_queue_process(regret_ques, strategy_ques):
         Thread(target=clear_queue_thread, args=(player, channel, "strategy", strategy_ques[player])).start()
 
 
-# Send a batch of observations to an inference server and returns the regrets
 def send_player_inference_batch(args):
     channel, player, observations, observation_counts, type = args
     n_items = len(observations)
@@ -76,7 +74,6 @@ def send_player_inference_batch(args):
     return np.empty(0), np.empty(0)
 
 
-# Does a specified amount of game traversals, sampling regrets and global strategies in the process
 def traverse_process(channel, traversals_per_process, loops_per_process, traverser, regret_que, strategy_que, iter_que):
     bt = BatchedTraversal(traversals_per_process, traverser, regret_que, strategy_que)
     for _ in range(loops_per_process):
@@ -105,7 +102,6 @@ def create_env_fn():
     return env
 
 
-# Evaluates the most recent policy against past policies
 def eval_process(channel, envs_per_process, hands_per_process, que):
     hands_played = 0
     total_winnings = 0
@@ -277,11 +273,7 @@ def deep_cfr(iterations, k):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    parser = argparse.ArgumentParser()
-    parser.add_argument('iterations', type=int)
-    parser.add_argument('k', type=int)
-    args = parser.parse_args()
-    if args.k % (N_CONC_TRAVERSALS_PER_PROCESS * N_TRAVERSE_PROCESSES) != 0 or N_EVAL_HANDS % (EVAL_ENVS_PER_PROCESS * N_EVAL_PROCESSES) != 0:
+    if K % (N_CONC_TRAVERSALS_PER_PROCESS * N_TRAVERSE_PROCESSES) != 0 or N_EVAL_HANDS % (EVAL_ENVS_PER_PROCESS * N_EVAL_PROCESSES) != 0:
         raise Exception("The k value needs to be divisible by the effective number of traversals per iteration "
                         "(traversals per process * number of processes)")
-    deep_cfr(args.iterations, args.k)
+    deep_cfr(N_ITERATIONS, K)
