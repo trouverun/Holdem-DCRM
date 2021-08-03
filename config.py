@@ -10,7 +10,7 @@ CLIENT_HOSTS = [
 
 # -------------------------------------- GENERAL ---------------------------------------
 N_ITERATIONS = 25
-K = 10
+K = 1500
 TRAVERSALS_PER_PROCESS = 1
 N_PROCESSES_PER_WORKER = 5
 assert K % (len(CLIENT_HOSTS) * TRAVERSALS_PER_PROCESS * N_PROCESSES_PER_WORKER) == 0
@@ -40,9 +40,9 @@ BET_BUCKETS = np.array([0.75, 1, 1.5, 2])                        # Which (additi
 
 
 # ---------------------------------------- CLIENT ----------------------------------------
-N_TRAVERSE_PROCESSES = 6
+N_TRAVERSE_PROCESSES = 5
 N_CONC_TRAVERSALS_PER_PROCESS = 1
-N_QUE_PROCESS = 2
+N_QUE_PROCESS = 3
 CLIENT_SAMPLES_MIN_BATCH_SIZE = 1024                                 # Batch size for sampled regrets
 EVAL_HH_FREQUENCY = 10000
 EVAL_ENVS_PER_PROCESS = 1000

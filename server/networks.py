@@ -3,7 +3,6 @@ from pokerenv.obs_indices import VALID_ACTIONS, VALID_BET_LOW, VALID_BET_HIGH, P
 from torch.nn.utils.rnn import pack_padded_sequence
 from config import OBS_SHAPE, N_BET_BUCKETS, N_ACTIONS, RNN_HIDDENS, BET_BUCKETS
 from torch.nn.functional import log_softmax
-import logging
 
 
 ACTIONS_START = VALID_ACTIONS[0]

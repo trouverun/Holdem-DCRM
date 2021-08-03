@@ -1,5 +1,4 @@
 import copy
-import logging
 import numpy as np
 import pokerenv.obs_indices as indices
 from pokerenv.table import Table
@@ -179,7 +178,16 @@ class BatchedTraversal:
 
         self.regret_que.put((self.regret_obs_list, self.regret_obs_count_list, self.regret_action_list, self.regret_bet_list))
         for player in range(N_PLAYERS):
-            self.strategy_ques[player].put((self.strategy_obs_list[player], self.strategy_obs_count_list[player], self.strategy_action_list[player], self.strategy_bet_list[player]))
+            if player != self.traverser:
+                self.strategy_ques[player].put((self.strategy_obs_list[player], self.strategy_obs_count_list[player], self.strategy_action_list[player], self.strategy_bet_list[player]))
+        self.regret_obs_list = []
+        self.regret_obs_count_list = []
+        self.regret_action_list = []
+        self.regret_bet_list = []
+        self.strategy_obs_list = [[] for _ in range(N_PLAYERS)]
+        self.strategy_obs_count_list = [[] for _ in range(N_PLAYERS)]
+        self.strategy_action_list = [[] for _ in range(N_PLAYERS)]
+        self.strategy_bet_list = [[] for _ in range(N_PLAYERS)]
         return observations, observation_counts, new_mappings
 
 

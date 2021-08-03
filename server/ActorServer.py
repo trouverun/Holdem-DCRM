@@ -1,7 +1,6 @@
 import logging
 import torch
 import numpy as np
-import time
 from rpc import RL_pb2_grpc
 from rpc.RL_pb2 import Prediction, Empty
 from collections import namedtuple
@@ -42,7 +41,7 @@ class Actor(RL_pb2_grpc.ActorServicer):
             Thread(target=self._process_batch_thread, args=(i, REGRET)).start()
             Thread(target=self._process_batch_thread, args=(i, STRATEGY)).start()
 
-    def _complete_batch(self, type, player):
+    def _finalize_batch(self, type, player):
         current_batch = self.current_batch_ids[type][player]
         current_batch_size = self.current_batch_sizes[type][player][current_batch]
         self.observations_que[type][player].put((self.tmp_batch_obs[type][player][:current_batch_size], self.tmp_batch_obs_count[type][player][:current_batch_size]))
@@ -67,7 +66,7 @@ class Actor(RL_pb2_grpc.ActorServicer):
             this_batch_size = self.current_batch_sizes[type][player][current_batch]
             # If we arrived here by timing out above, we need to set the current batch as consumed, so that we no longer add data to it
             if this_batch_size != MAX_INFERENCE_BATCH_SIZE:
-                self._complete_batch(type, player)
+                self._finalize_batch(type, player)
             self.player_locks[type][player].release()
             logging.debug("Processing %s batch size of: %d, for player: %d" % (types[type], this_batch_size, player))
             observations, counts = self.observations_que[type][player].get()
@@ -104,7 +103,7 @@ class Actor(RL_pb2_grpc.ActorServicer):
                 self.current_batch_sizes[type][player][current_batch] = MAX_INFERENCE_BATCH_SIZE
                 self.tmp_batch_obs[type][player][current_batch_size:MAX_INFERENCE_BATCH_SIZE](observations[consumed:consumed + space_left])
                 self.tmp_batch_obs_count[type][player][current_batch_size:MAX_INFERENCE_BATCH_SIZE].append(counts[consumed:consumed + space_left])
-                self._complete_batch(type, player)
+                self._finalize_batch(type, player)
                 self.data_added_events[type][player][current_batch].set()
                 self.batch_full_events[type][player][current_batch].set()
                 current_batch_size = 0

@@ -9,7 +9,6 @@ from threading import Lock, Thread
 from config import N_PLAYERS, REGRET_LEARNING_RATE, REGRET_WEIGHT_DECAY, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, \
     OBS_SHAPE, RESERVOIR_SIZE, N_BET_BUCKETS, N_EPOCHS, PATIENCE, SEQUENCE_LENGTH, N_ACTIONS
 from networks import RegretNetwork, StrategyNetwork
-import time
 
 SampledData = namedtuple("SampledData", "obs count actions bets")
 
@@ -128,6 +127,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.regret_observation_counts[player][replace_indices] = counts[should_replace.nonzero()]
                 self.regret_actions[player][replace_indices] = actions[should_replace.nonzero()]
                 self.regret_bets[player][replace_indices] = bets[should_replace.nonzero()]
+            logging.info("n_regrets %d" % (count + obs.shape[0]))
             self.regret_locks[player].release()
 
     def AddRegrets(self, request, context):
@@ -187,6 +187,7 @@ class Learner(RL_pb2_grpc.LearnerServicer):
                 self.strategy_observation_counts[replace_indices] = counts[should_replace.nonzero()]
                 self.strategy_actions[replace_indices] = actions[should_replace.nonzero()]
                 self.strategy_bets[replace_indices] = bets[should_replace.nonzero()]
+            logging.info("n_strat %d" % (count + obs.shape[0]))
             self.strategy_lock.release()
 
     def AddStrategies(self, request, context):
