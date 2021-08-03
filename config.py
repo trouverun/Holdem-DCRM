@@ -10,7 +10,7 @@ CLIENT_HOSTS = [
 
 # -------------------------------------- GENERAL ---------------------------------------
 N_ITERATIONS = 25
-K = 1500
+K = 900
 TRAVERSALS_PER_PROCESS = 1
 N_PROCESSES_PER_WORKER = 5
 assert K % (len(CLIENT_HOSTS) * TRAVERSALS_PER_PROCESS * N_PROCESSES_PER_WORKER) == 0
@@ -40,9 +40,9 @@ BET_BUCKETS = np.array([0.75, 1, 1.5, 2])                        # Which (additi
 
 
 # ---------------------------------------- CLIENT ----------------------------------------
-N_TRAVERSE_PROCESSES = 5
+N_TRAVERSE_PROCESSES = 6
 N_CONC_TRAVERSALS_PER_PROCESS = 1
-N_QUE_PROCESS = 3
+N_QUE_PROCESS = 2
 CLIENT_SAMPLES_MIN_BATCH_SIZE = 1024                                 # Batch size for sampled regrets
 EVAL_HH_FREQUENCY = 10000
 EVAL_ENVS_PER_PROCESS = 1000
@@ -51,6 +51,8 @@ N_EVAL_PROCESSES = 5
 
 
 # ---------------------------------------- SERVER ----------------------------------------
+LINEAR_CFR = False
+SINGLE_NETWORK = False
 RESERVOIR_SIZE = int(5e6)                                        # How many samples are stored in each reservoir
 DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
 MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies

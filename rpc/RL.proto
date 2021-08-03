@@ -42,13 +42,18 @@ service Actor {
     rpc SetStrategy(Selection) returns (Empty);
 }
 
-service Learner {
+service RegretLearner {
     rpc AddRegrets(SampledData) returns (Empty);
-    rpc AddStrategies(SampledData) returns (Empty);
     rpc TrainRegrets(IntMessage) returns (Empty);
+    rpc AvailableStrategies(Empty) returns (IntMessage);
+}
+
+service StrategyLearner {
+    rpc AddStrategies(SampledData) returns (Empty);
     rpc TrainStrategy(Empty) returns (Empty);
     rpc AvailableStrategies(Empty) returns (IntMessage);
 }
+
 
 message IterationSettings {
     int32 k = 1;

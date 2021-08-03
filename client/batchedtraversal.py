@@ -1,4 +1,6 @@
 import copy
+import gc
+import logging
 import numpy as np
 import pokerenv.obs_indices as indices
 from pokerenv.table import Table
@@ -152,13 +154,13 @@ class BatchedTraversal:
                 if not action_dont_care:
                     # Expand all possible trajectories/child nodes originating from the current node
                     self._create_child_nodes(previous_observation, node, observations, observation_counts, new_mappings)
-                    node.env = None  # Save some memory by removing (now) unused environment
+                    del node.env  # Save some memory by removing (now) unused environment
                     continue
                 else:
                     parent_is_traverser = True
             env = node.env
             env_copy = copy.deepcopy(env)
-            node.env = None  # Save some memory by removing (now) unused environment
+            del node.env  # Save some memory by removing (now) unused environment
             self.all_nodes[self.node_n] = Node(self.node_n, node, env_copy)
             new_node = self.all_nodes[self.node_n]
             obs, obs_count, reward, done = new_node.step(previous_observation, parent_is_traverser, action_dont_care)
@@ -188,6 +190,9 @@ class BatchedTraversal:
         self.strategy_obs_count_list = [[] for _ in range(N_PLAYERS)]
         self.strategy_action_list = [[] for _ in range(N_PLAYERS)]
         self.strategy_bet_list = [[] for _ in range(N_PLAYERS)]
+
+        gc.collect()
+
         return observations, observation_counts, new_mappings
 
 

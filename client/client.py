@@ -1,8 +1,9 @@
 import grpc
+import gc
 import numpy as np
 import logging
 import time
-from rpc.RL_pb2_grpc import ActorStub, LearnerStub
+from rpc.RL_pb2_grpc import ActorStub, RegretLearnerStub, StrategyLearnerStub
 from rpc.RL_pb2 import Observation, SampledData, Empty, IntMessage, Selection
 from batchedtraversal import BatchedTraversal
 from multiprocessing import Process, Queue
@@ -16,7 +17,12 @@ from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_MIN_BATCH_SIZE, SEQU
 
 def clear_queue_thread(player, channel, type, que):
     logging.info("Started regret/strategy queue clearing thread for player %d" % player)
-    stub = LearnerStub(channel)
+    if type == 'regret':
+        stub = RegretLearnerStub(channel)
+    elif type == 'strategy':
+        stub = StrategyLearnerStub(channel)
+    else:
+        raise ValueError("Invalid type for queue stub")
     observations = []
     counts = []
     actions = []
@@ -42,14 +48,16 @@ def clear_queue_thread(player, channel, type, que):
             counts = []
             actions = []
             bets = []
+            gc.collect()
 
 
 def clear_queue_process(regret_ques, strategy_ques):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    channel = grpc.insecure_channel('localhost:50051', options)
+    channel_r = grpc.insecure_channel('localhost:50051', options)
+    channel_s = grpc.insecure_channel('localhost:50052', options)
     for player in range(N_PLAYERS):
-        Thread(target=clear_queue_thread, args=(player, channel, "regret", regret_ques[player])).start()
-        Thread(target=clear_queue_thread, args=(player, channel, "strategy", strategy_ques[player])).start()
+        Thread(target=clear_queue_thread, args=(player, channel_r, "regret", regret_ques[player])).start()
+        Thread(target=clear_queue_thread, args=(player, channel_s, "strategy", strategy_ques[player])).start()
 
 
 def send_player_inference_batch(args):
@@ -155,7 +163,12 @@ def tracker_process(k, queue, result_que):
             raise ValueError("Invalid command %s received by tracker process when operating in %s mode" % (command, mode))
 
 
-def traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, strategy_ques, stub_learner, iteration):
+def traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, strategy_ques, iteration, options):
+    regret_learner_channel = grpc.insecure_channel('localhost:50051', options)
+    stub_regret_learner = RegretLearnerStub(regret_learner_channel)
+    strategy_learner_channel = grpc.insecure_channel('localhost:50052', options)
+    stub_strategy_learner = StrategyLearnerStub(strategy_learner_channel)
+
     process_count = 0
     for player in range(N_PLAYERS):
         iter_que.put(('mode', 'traversal'))
@@ -173,18 +186,22 @@ def traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, s
             process_count -= 1
             logging.debug("joined traversal process %d" % process_count)
         logging.info("Training regrets for player %d" % player)
-        stub_learner.TrainRegrets(IntMessage(value=player))
+        stub_regret_learner.TrainRegrets(IntMessage(value=player))
         iter_que.put(('reset', None))
     logging.info("Training strategy for iteration %d" % iteration)
-    stub_learner.TrainStrategy(Empty())
+    stub_strategy_learner.TrainStrategy(Empty())
+    regret_learner_channel.close()
+    strategy_learner_channel.close()
 
 
-def eval_loop(stub_learner, iter_que, eval_channels, process_count, options, result_que):
+def eval_loop(iter_que, eval_channels, process_count, options, result_que):
     evaluation_names = ['previous', 'last3', 'random5']
-    a_channel = grpc.insecure_channel('localhost:50050', options)
+    a_channel = grpc.insecure_channel('localhost:50053', options)
     stub_actor = ActorStub(a_channel)
+    strategy_learner_channel = grpc.insecure_channel('localhost:50052', options)
+    stub_strategy_learner = StrategyLearnerStub(strategy_learner_channel)
 
-    response = stub_learner.AvailableStrategies(Empty())
+    response = stub_strategy_learner.AvailableStrategies(Empty())
     n_strategies = response.value + 1
     stub_actor.SetStrategy(Selection(player=0, strategy_version=n_strategies - 1))
     iter_que.put(('mode', 'evaluation'))
@@ -228,22 +245,23 @@ def eval_loop(stub_learner, iter_que, eval_channels, process_count, options, res
                 p.join()
                 process_count -= 1
                 logging.debug("joined evaluation process %d" % process_count)
-            a_channel = grpc.insecure_channel('localhost:50050', options)
+            a_channel = grpc.insecure_channel('localhost:50030', options)
             stub_actor = ActorStub(a_channel)
             iter_que.put(('reset', None))
             reward = result_que.get()
             rewards[loop] = reward
         logging.info("Evaluation against '%s': average winnings of %f bb/100hands (sample size = %d)" % (
         evaluation_name, rewards.mean(), loops * N_EVAL_HANDS))
+        strategy_learner_channel.close()
 
 
 def deep_cfr(iterations, k):
     loops_per_process = int(k / (N_CONC_TRAVERSALS_PER_PROCESS*N_TRAVERSE_PROCESSES))
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    traverse_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(N_TRAVERSE_PROCESSES)]
-    eval_channels = [grpc.insecure_channel('localhost:50050', options) for _ in range(N_EVAL_PROCESSES)]
-    regret_ques = [Queue() for _ in range(N_PLAYERS)]
-    strategy_ques = [Queue() for _ in range(N_PLAYERS)]
+    traverse_channels = [grpc.insecure_channel('localhost:50053', options) for _ in range(N_TRAVERSE_PROCESSES)]
+    eval_channels = [grpc.insecure_channel('localhost:50053', options) for _ in range(N_EVAL_PROCESSES)]
+    regret_ques = [Queue(maxsize=5000) for _ in range(N_PLAYERS)]
+    strategy_ques = [Queue(maxsize=5000) for _ in range(N_PLAYERS)]
     iter_que = Queue()
     result_que = Queue()
     iter_track_process = Process(target=tracker_process, args=(k, iter_que, result_que))
@@ -256,12 +274,9 @@ def deep_cfr(iterations, k):
 
     for iteration in range(iterations):
         start = time.time()
-        l_channel = grpc.insecure_channel('localhost:50051', options)
-        stub_learner = LearnerStub(l_channel)
-        traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, strategy_ques, stub_learner, iteration)
+        traverse_loop(iter_que, traverse_channels, loops_per_process, regret_ques, strategy_ques, iteration, options)
         # Destroy parent grpc to make multiprocessing work correctly
-        l_channel.close()
-        eval_loop(stub_learner, iter_que, eval_channels, process_count, options, result_que)
+        eval_loop(iter_que, eval_channels, process_count, options, result_que)
         end = time.time()
         logging.info("One iteration took %fs" % (end - start))
 

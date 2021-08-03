@@ -1,4 +1,3 @@
-import time
 import grpc
 import logging
 from rpc import RL_pb2_grpc
@@ -7,39 +6,50 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from multiprocessing import Event
 from ActorServer import Actor
-from LearnerServer import Learner
+from LearnerServer import RegretLearner, StrategyLearner
 
 
 def _run_actor_server(bind_address, gpu_lock):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    server = grpc.server(ThreadPoolExecutor(max_workers=32), options=options)
+    server = grpc.server(ThreadPoolExecutor(max_workers=8), options=options)
     RL_pb2_grpc.add_ActorServicer_to_server(Actor(gpu_lock), server)
     server.add_insecure_port(bind_address)
     server.start()
-    logging.info("Server serving at %s", bind_address)
+    logging.info("Actor server serving at %s", bind_address)
     server.wait_for_termination()
 
 
-def _run_learner_server(bind_address, gpu_lock, ready):
+def _run_regret_learner_server(bind_address, player_list, gpu_lock, ready):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    server = grpc.server(ThreadPoolExecutor(max_workers=32), options=options)
-    RL_pb2_grpc.add_LearnerServicer_to_server(Learner(gpu_lock, ready), server)
+    server = grpc.server(ThreadPoolExecutor(max_workers=8), options=options)
+    RL_pb2_grpc.add_RegretLearnerServicer_to_server(RegretLearner(player_list, gpu_lock, ready), server)
     server.add_insecure_port(bind_address)
     server.start()
-    logging.info("Server serving at %s", bind_address)
+    logging.info("Regret learner server serving at %s", bind_address)
+    server.wait_for_termination()
+
+
+def _run_strategy_learner_server(bind_address, gpu_lock, ready):
+    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
+    server = grpc.server(ThreadPoolExecutor(max_workers=8), options=options)
+    RL_pb2_grpc.add_StrategyLearnerServicer_to_server(StrategyLearner(gpu_lock, ready), server)
+    server.add_insecure_port(bind_address)
+    server.start()
+    logging.info("Strategy learner serving at %s", bind_address)
     server.wait_for_termination()
 
 
 def serve():
     processes = []
     gpu_lock = Lock()
-    ready = Event()
-    processes.append(multiprocessing.Process(target=_run_learner_server, args=("localhost:50051", gpu_lock, ready)))
-    processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50050", gpu_lock,)))
+    readies = [Event(), Event()]
+    processes.append(multiprocessing.Process(target=_run_regret_learner_server, args=("localhost:50051", [0, 1], gpu_lock, readies[0])))
+    processes.append(multiprocessing.Process(target=_run_strategy_learner_server, args=("localhost:50052", gpu_lock, readies[1])))
+    processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50053", gpu_lock,)))
     for i, p in enumerate(processes):
         p.start()
-        if i == 0:
-            ready.wait()
+        if 0 <= i < 2:
+            readies[i].wait()
     for p in processes:
         p.join()
 

@@ -74,10 +74,10 @@ class Actor(RL_pb2_grpc.ActorServicer):
             observations = torch.from_numpy(observations[:this_batch_size]).type(torch.FloatTensor).to(self.device)
             counts = torch.from_numpy(counts[:this_batch_size]).type(torch.LongTensor)
             if type == REGRET:
-                self.regret_net.load_state_dict(torch.load('../states/regret_net_player_%d' % player))
+                self.regret_net.load_state_dict(torch.load('../states/regret/regret_net_player_%d' % player))
                 action_predictions, bet_predictions = self.regret_net(observations, counts)
             else:
-                self.strategy_net.load_state_dict(torch.load('../states/strategy_net_%d' % self.strategy_versions[player]))
+                self.strategy_net.load_state_dict(torch.load('../states/strategy/strategy_net_%d' % self.strategy_versions[player]))
                 action_predictions, bet_predictions = self.strategy_net(observations, counts)
             self.gpu_lock.release()
             self.player_locks[type][player].acquire()
