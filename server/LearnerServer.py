@@ -11,8 +11,6 @@ from config import REGRET_LEARNING_RATE, REGRET_WEIGHT_DECAY, STRATEGY_LEARNING_
     OBS_SHAPE, N_BET_BUCKETS, N_EPOCHS, SEQUENCE_LENGTH, N_ACTIONS, N_PLAYERS, LINEAR_CFR
 from util import Reservoir, Learner
 
-SampledData = namedtuple("SampledData", "obs count actions bets")
-
 
 class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
     def __init__(self, player_list, gpu_lock, ready):
@@ -62,6 +60,9 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
 
         for player in player_list:
             torch.save(self.regret_net.state_dict(), '../states/regret/regret_net_player_%d' % player)
+            if 'player_%d' % player not in os.listdir('../reservoirs'):
+                os.makedirs('../reservoirs/player_%d' % player)
+
             base_path = '../reservoirs/player_%d/' % player
             success = self.regret_reservoirs[player].load_from_disk(base_path + 'regret_samples.npy', base_path + 'regret_obs.npy',
                                                           base_path + 'regret_obs_count.npy', base_path + 'regret_actions.npy',
@@ -157,7 +158,10 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
             if base_name + str(i) in states:
                 i += 1
             else:
-                i -= 1
+                if i == 0:
+                    torch.save(self.strategy_net.state_dict(), '../states/strategy/strategy_net_0')
+                else:
+                    i -= 1
                 break
 
         if i == 0:

@@ -260,8 +260,8 @@ def deep_cfr(iterations, k):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
     traverse_channels = [grpc.insecure_channel('localhost:50053', options) for _ in range(N_TRAVERSE_PROCESSES)]
     eval_channels = [grpc.insecure_channel('localhost:50053', options) for _ in range(N_EVAL_PROCESSES)]
-    regret_ques = [Queue(maxsize=5000) for _ in range(N_PLAYERS)]
-    strategy_ques = [Queue(maxsize=5000) for _ in range(N_PLAYERS)]
+    regret_ques = [Queue(maxsize=1000) for _ in range(N_PLAYERS)]
+    strategy_ques = [Queue(maxsize=1000) for _ in range(N_PLAYERS)]
     iter_que = Queue()
     result_que = Queue()
     iter_track_process = Process(target=tracker_process, args=(k, iter_que, result_que))

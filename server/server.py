@@ -9,10 +9,10 @@ from ActorServer import Actor
 from LearnerServer import RegretLearner, StrategyLearner
 
 
-def _run_actor_server(bind_address, gpu_lock):
+def _run_actor_server(bind_address, player_list, gpu_lock):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
     server = grpc.server(ThreadPoolExecutor(max_workers=8), options=options)
-    RL_pb2_grpc.add_ActorServicer_to_server(Actor(gpu_lock), server)
+    RL_pb2_grpc.add_ActorServicer_to_server(Actor(player_list, gpu_lock), server)
     server.add_insecure_port(bind_address)
     server.start()
     logging.info("Actor server serving at %s", bind_address)
@@ -45,7 +45,7 @@ def serve():
     readies = [Event(), Event()]
     processes.append(multiprocessing.Process(target=_run_regret_learner_server, args=("localhost:50051", [0, 1], gpu_lock, readies[0])))
     processes.append(multiprocessing.Process(target=_run_strategy_learner_server, args=("localhost:50052", gpu_lock, readies[1])))
-    processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50053", gpu_lock,)))
+    processes.append(multiprocessing.Process(target=_run_actor_server, args=("localhost:50053", [0, 1], gpu_lock,)))
     for i, p in enumerate(processes):
         p.start()
         if 0 <= i < 2:
