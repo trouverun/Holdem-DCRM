@@ -46,7 +46,7 @@ REGRET_HOST_PLAYER_MAP = {
 ```shell
 ./dcrm.py slave -host hostname:port
 ```
-
+(note: hostname:port needs to be added to the config file lists)
 ### Start up the master 
 ```shell
 ./dcrm.py master
