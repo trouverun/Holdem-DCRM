@@ -1,4 +1,5 @@
 import grpc
+import os
 import logging
 from rpc import RL_pb2_grpc
 import multiprocessing
@@ -41,6 +42,17 @@ def _run_strategy_learner_server(bind_address, gpu_lock, ready):
 
 
 def serve(hosts):
+    dirs = os.listdir()
+    if 'states' not in dirs:
+        os.makedirs('states')
+    subdirs = os.listdir('states')
+    if 'regret' not in subdirs:
+        os.makedirs('states/regret')
+    if 'strategy' not in subdirs:
+        os.makedirs('states/strategy')
+    if 'reservoirs' not in dirs:
+        os.makedirs('reservoirs')
+
     regret_processes = []
     reg_readies = []
     actor_processes = []
@@ -59,7 +71,7 @@ def serve(hosts):
             strat_ready = Event()
             strategy_process = multiprocessing.Process(target=_run_strategy_learner_server, args=(host, gpu_lock, strat_ready))
         else:
-            raise ValueError("Unrecognized hostname given to serve(), check config file.")
+            raise ValueError("Unrecognized hostname given to serve(), check the config file.")
 
     for i, p in enumerate(regret_processes):
         p.start()

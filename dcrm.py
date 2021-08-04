@@ -1,3 +1,4 @@
+import os
 import logging
 import argparse
 import grpc
@@ -25,7 +26,12 @@ if __name__ == "__main__":
         server.wait_for_termination()
     elif args.mode == 'slave':
         if args.host not in SLAVE_HOSTS:
-            raise ValueError("Unrecognized hostname for slave, check config file.")
+            raise ValueError("Unrecognized hostname for slave, check the config file.")
+
+        dirs = os.listdir()
+        if 'hands' not in dirs:
+            os.makedirs('hands')
+
         server = grpc.server(ThreadPoolExecutor(max_workers=2), options=options)
         RL_pb2_grpc.add_SlaveServicer_to_server(Slave(), server)
         server.add_insecure_port(args.host)
