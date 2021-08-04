@@ -8,12 +8,15 @@ Implementantion of the regret minimization method described in the paper "Deep C
 # Host responsible for coordinating the algorithm execution, 
 # it commands the slave workers and triggers network training
 MASTER_HOST = 'localhost:50040'
+
 # List of hosts which run traversals and evaluations
 SLAVE_HOSTS = [
     'localhost:50041'
 ]
-# The host which is responsible for strategy reservoir sampling and training 
+
+# The host which is responsible for global strategy reservoir sampling and training 
 GLOBAL_STRATEGY_HOST = 'localhost:50050'
+
 # Mapping from regret host to player, 
 # specifying which host provides regret and strategy inference for which player(s)
 ACTOR_HOST_PLAYER_MAP = {
@@ -23,6 +26,7 @@ ACTOR_HOST_PLAYER_MAP = {
     # OR to have both on same process:
     # 'localhost:50051': [*range(2)]
 }
+
 # Mapping from regret host to player, 
 # specifying which host provides regret reservoir sampling and training to which player(s)
 REGRET_HOST_PLAYER_MAP = {
