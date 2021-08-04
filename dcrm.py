@@ -36,7 +36,7 @@ if __name__ == "__main__":
         RL_pb2_grpc.add_SlaveServicer_to_server(Slave(), server)
         server.add_insecure_port(args.host)
         server.start()
-        logging.info("Slave server serving at %s", args.hosts[0])
+        logging.info("Slave server serving at %s", args.host)
         server.wait_for_termination()
     elif args.mode == 'server':
         serve(args.hosts)
