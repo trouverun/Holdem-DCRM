@@ -7,7 +7,7 @@ Implementantion of the regret minimization method described in the paper "Deep C
 - Clean up properly after execution, fix memory leakage from zombie processes [ ]
 - Sync model parameters in case of multiple server hosts [ ]
 - Better evaluation [ ]
-- Implement single deep counterfactual regret minimization (https://arxiv.org/abs/1901.07621)
+- Implement single deep counterfactual regret minimization (https://arxiv.org/abs/1901.07621) [ ]
 
 
 ## Usage
