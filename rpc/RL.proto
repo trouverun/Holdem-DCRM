@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+message Observation {
+    int32 player = 1;
+    bytes observations = 2;
+    bytes observation_counts = 3;
+    int32 shape = 4;
+    int32 sequence_length = 5;
+}
+
+message Prediction {
+    bytes action_prediction = 1;
+    bytes bet_prediction = 2;
+}
+
+message SampledData {
+    int32 player = 1;
+    bytes observations = 2;
+    bytes observation_counts = 3;
+    bytes action_data = 4;
+    bytes bet_data = 5;
+    int32 shape = 6;
+    int32 sequence_length = 7;
+}
+
+message IntMessage {
+    int32 value = 1;
+}
+
+message PairMessage {
+    int32 value1 = 1;
+    int32 value2 = 2;
+}
+
+message Selection {
+    int32 player = 1;
+    int32 strategy_version = 2;
+}
+
+message Empty {
+
+}
+
+service Actor {
+    rpc GetRegrets(Observation) returns (Prediction);
+    rpc GetStrategies(Observation) returns (Prediction);
+    rpc SetStrategy(Selection) returns (Empty);
+}
+
+service RegretLearner {
+    rpc AddRegrets(SampledData) returns (Empty);
+    rpc TrainRegrets(IntMessage) returns (Empty);
+    rpc AvailableStrategies(Empty) returns (IntMessage);
+}
+
+service StrategyLearner {
+    rpc AddStrategies(SampledData) returns (Empty);
+    rpc TrainStrategy(Empty) returns (Empty);
+    rpc AvailableStrategies(Empty) returns (IntMessage);
+}
+
+
+service Master {
+    rpc CompleteTraversal(IntMessage) returns (IntMessage);
+    rpc CompleteEvaluation(PairMessage) returns (IntMessage);
+}
+
+service Slave {
+    rpc SetIdentifier(IntMessage) returns (Empty);
+    rpc RunTraversals(IntMessage) returns (Empty);
+    rpc RunEvaluations(Empty) returns (Empty);
+}
