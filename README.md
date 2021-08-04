@@ -47,3 +47,4 @@ REGRET_HOST_PLAYER_MAP = {
 ```shell
 ./dcrm.py master
 ```
+(note: needs to be ran on the master host specified in the config file)
