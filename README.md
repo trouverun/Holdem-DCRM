@@ -5,7 +5,8 @@ Implementantion of the regret minimization method described in the paper "Deep C
 ## Usage (TODO)
 ### Configure the hosts in config.py
 ```python
-# Host responsible for coordinating the algorithm execution, commands the slave workers and triggers network training
+# Host responsible for coordinating the algorithm execution, 
+# it commands the slave workers and triggers network training
 MASTER_HOST = 'localhost:50040'
 # List of hosts which run traversals and evaluations
 SLAVE_HOSTS = [
@@ -13,7 +14,8 @@ SLAVE_HOSTS = [
 ]
 # The host which is responsible for strategy reservoir sampling and training 
 GLOBAL_STRATEGY_HOST = 'localhost:50050'
-# Mapping from regret host to player, specifying which host provides regret and strategy inference for which player(s)
+# Mapping from regret host to player, 
+# specifying which host provides regret and strategy inference for which player(s)
 ACTOR_HOST_PLAYER_MAP = {
     # To have own process for each player:
     'localhost:50051': [0],
@@ -21,7 +23,8 @@ ACTOR_HOST_PLAYER_MAP = {
     # OR to have both on same process:
     # 'localhost:50051': [*range(2)]
 }
-# Mapping from regret host to player, specifying which host provides regret reservoir sampling and training to which player(s)
+# Mapping from regret host to player, 
+# specifying which host provides regret reservoir sampling and training to which player(s)
 REGRET_HOST_PLAYER_MAP = {
     # To have own process for each player:
     'localhost:50061': [0],
