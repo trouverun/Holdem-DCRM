@@ -17,7 +17,7 @@ SLAVE_HOSTS = [
 # The host which is responsible for global strategy reservoir sampling and training 
 GLOBAL_STRATEGY_HOST = 'localhost:50050'
 
-# Mapping from regret host to player, 
+# A mapping from inference host to player, 
 # specifying which host provides regret and strategy inference for which player(s)
 ACTOR_HOST_PLAYER_MAP = {
     # To have own process for each player:
@@ -27,7 +27,7 @@ ACTOR_HOST_PLAYER_MAP = {
     # 'localhost:50051': [*range(2)]
 }
 
-# Mapping from regret host to player, 
+# A mapping from regret host to player, 
 # specifying which host provides regret reservoir sampling and training to which player(s)
 REGRET_HOST_PLAYER_MAP = {
     # To have own process for each player:
