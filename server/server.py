@@ -1,3 +1,5 @@
+import atexit
+
 import grpc
 import os
 import logging
@@ -7,7 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from multiprocessing import Event
 from server.ActorServer import Actor
-from server.LearnerServer import RegretLearner, StrategyLearner
+from server.RegretServer import RegretLearner
+from server.StrategyServer import StrategyLearner
 from config import N_THREADPOOL_WORKERS, GLOBAL_STRATEGY_HOST, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP
 
 
@@ -41,43 +44,55 @@ def _run_strategy_learner_server(bind_address, gpu_lock, ready):
     server.wait_for_termination()
 
 
-def serve(hosts):
-    dirs = os.listdir()
-    if 'states' not in dirs:
-        os.makedirs('states')
-    subdirs = os.listdir('states')
-    if 'regret' not in subdirs:
-        os.makedirs('states/regret')
-    if 'strategy' not in subdirs:
-        os.makedirs('states/strategy')
-    if 'reservoirs' not in dirs:
-        os.makedirs('reservoirs')
+class Server:
+    def __init__(self):
+        self.regret_processes = []
+        self.actor_processes = []
+        self.strategy_process = None
 
-    regret_processes = []
-    reg_readies = []
-    actor_processes = []
-    strat_ready = None
-    strategy_process = None
-    gpu_lock = Lock()
+    def cleanup(self):
+        for p in self.regret_processes:
+            p.terminate()
+        for p in self.actor_processes:
+            p.terminate()
+        if self.strategy_process is not None:
+            self.strategy_process.terminate()
+        logging.info("server cleanup done")
 
-    for host in hosts:
-        if host in REGRET_HOST_PLAYER_MAP.keys():
-            reg_readies.append(Event())
-            regret_processes.append(multiprocessing.Process(target=_run_regret_learner_server,
-                                                    args=(host, REGRET_HOST_PLAYER_MAP[host], gpu_lock, reg_readies[-1])))
-        elif host in ACTOR_HOST_PLAYER_MAP.keys():
-            actor_processes.append(multiprocessing.Process(target=_run_actor_server, args=(host, ACTOR_HOST_PLAYER_MAP[host], gpu_lock)))
-        elif host == GLOBAL_STRATEGY_HOST:
-            strat_ready = Event()
-            strategy_process = multiprocessing.Process(target=_run_strategy_learner_server, args=(host, gpu_lock, strat_ready))
-        else:
-            raise ValueError("Unrecognized hostname given to serve(), check the config file.")
+    def serve(self, hosts):
+        dirs = os.listdir()
+        if 'states' not in dirs:
+            os.makedirs('states')
+        subdirs = os.listdir('states')
+        if 'regret' not in subdirs:
+            os.makedirs('states/regret')
+        if 'strategy' not in subdirs:
+            os.makedirs('states/strategy')
+        if 'reservoirs' not in dirs:
+            os.makedirs('reservoirs')
 
-    for i, p in enumerate(regret_processes):
-        p.start()
-        reg_readies[i].wait()
-    if strategy_process is not None:
-        strategy_process.start()
-        strat_ready.wait()
-    for p in actor_processes:
-        p.start()
+        reg_readies = []
+        strat_ready = None
+        gpu_lock = Lock()
+
+        for host in hosts:
+            if host in REGRET_HOST_PLAYER_MAP.keys():
+                reg_readies.append(Event())
+                self.regret_processes.append(multiprocessing.Process(target=_run_regret_learner_server,
+                                                                     args=(host, REGRET_HOST_PLAYER_MAP[host], gpu_lock, reg_readies[-1])))
+            elif host in ACTOR_HOST_PLAYER_MAP.keys():
+                self.actor_processes.append(multiprocessing.Process(target=_run_actor_server, args=(host, ACTOR_HOST_PLAYER_MAP[host], gpu_lock)))
+            elif host == GLOBAL_STRATEGY_HOST:
+                strat_ready = Event()
+                self.strategy_process = multiprocessing.Process(target=_run_strategy_learner_server, args=(host, gpu_lock, strat_ready))
+            else:
+                raise ValueError("Unrecognized hostname given to serve(), check the config file.")
+
+        for i, p in enumerate(self.regret_processes):
+            p.start()
+            reg_readies[i].wait()
+        if self.strategy_process is not None:
+            self.strategy_process.start()
+            strat_ready.wait()
+        for p in self.actor_processes:
+            p.start()

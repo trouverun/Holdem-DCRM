@@ -92,9 +92,9 @@ class BatchManager:
         self.current_batch_sizes = [0]
         self.tmp_batch_obs = np.zeros([MAX_INFERENCE_BATCH_SIZE, SEQUENCE_LENGTH, OBS_SHAPE])
         self.tmp_batch_obs_count = np.zeros([MAX_INFERENCE_BATCH_SIZE])
-        self.data_added_events = [Event()]
-        self.batch_full_events = [Event()]
-        self.batch_ready_events = [Event()]
+        self.data_added_events = {0: Event()}
+        self.batch_full_events = {0: Event()}
+        self.batch_ready_events = {0: Event()}
         self.batch_read_counts = []
         self.action_predictions = dict()
         self.bet_predictions = dict()
@@ -109,9 +109,9 @@ class BatchManager:
         # Add required entries for the next batch
         self.current_batch_sizes.append(0)
         self.batch_read_counts.append(0)
-        self.batch_ready_events.append(Event())
-        self.batch_full_events.append(Event())
-        self.data_added_events.append(Event())
+        self.data_added_events[self.current_batch_id] = Event()
+        self.batch_full_events[self.current_batch_id] = Event()
+        self.batch_ready_events[self.current_batch_id] = Event()
 
     def add_data_to_batch(self, observations, counts):
         batch_ids = []
@@ -155,10 +155,10 @@ class BatchManager:
             self.data_added_events[current_batch].set()
         return batch_ids, indices
 
-    def add_batch_results(self, which_batch, action_preds, bet_preds):
-        self.action_predictions[which_batch] = action_preds
-        self.bet_predictions[which_batch] = bet_preds
-        self.batch_ready_events[which_batch].set()
+    def add_batch_results(self, batch_id, action_preds, bet_preds):
+        self.action_predictions[batch_id] = action_preds
+        self.bet_predictions[batch_id] = bet_preds
+        self.batch_ready_events[batch_id].set()
 
     def get_batch_results(self, batch_id, indices):
         self.batch_read_counts[batch_id] += len(indices)
@@ -167,6 +167,9 @@ class BatchManager:
         if self.batch_read_counts[batch_id] == self.current_batch_sizes[batch_id]:
             self.action_predictions.pop(batch_id)
             self.bet_predictions.pop(batch_id)
+            self.data_added_events.pop(batch_id)
+            self.batch_full_events.pop(batch_id)
+            self.batch_ready_events.pop(batch_id)
         return action_regrets, bet_regrets
 
 

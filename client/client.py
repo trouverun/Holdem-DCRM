@@ -51,7 +51,7 @@ def clear_queue_thread(player, channel, type, que):
 
 def clear_queue_process(regret_ques, strategy_ques):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    regret_channels = {host: grpc.insecure_channel("%s", options) for host in REGRET_HOST_PLAYER_MAP.keys()}
+    regret_channels = {host: grpc.insecure_channel(host, options) for host in REGRET_HOST_PLAYER_MAP.keys()}
     strategy_channel = grpc.insecure_channel(GLOBAL_STRATEGY_HOST)
     for player in range(N_PLAYERS):
         Thread(target=clear_queue_thread, args=(player, regret_channels[PLAYER_REGRET_HOST_MAP[player]], "regret", regret_ques[player])).start()

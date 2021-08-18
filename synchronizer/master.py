@@ -1,13 +1,11 @@
 import logging
 import grpc
 import time
-from multiprocessing import Process, Event, Lock, Queue
+from multiprocessing import Process, Event, Lock
 from rpc.RL_pb2 import IntMessage, Empty, Selection
-from rpc.RL_pb2_grpc import StrategyLearnerStub, RegretLearnerStub, MasterServicer, SlaveServicer, SlaveStub, ActorStub
+from rpc.RL_pb2_grpc import StrategyLearnerStub, RegretLearnerStub, MasterServicer, SlaveStub, ActorStub
 from config import SLAVE_HOSTS, N_PLAYERS, N_ITERATIONS, K, ACTOR_HOST_PLAYER_MAP, PLAYER_ACTOR_HOST_MAP, GLOBAL_STRATEGY_HOST, \
-    N_QUE_PROCESS, N_CONC_TRAVERSALS_PER_PROCESS, N_TRAVERSE_PROCESSES, N_EVALUATIONS, EVAL_ENVS_PER_PROCESS, REGRET_HOST_PLAYER_MAP, PLAYER_REGRET_HOST_MAP
-from client.client import clear_queue_process, traverse_process, eval_process
-from threading import Thread
+    N_EVAL_HANDS, REGRET_HOST_PLAYER_MAP, PLAYER_REGRET_HOST_MAP
 
 
 class Master(MasterServicer):
@@ -63,7 +61,6 @@ class Master(MasterServicer):
                 else:
                     actor_stub.SetStrategy(Selection(player=player, strategy_version=n_strategies-2))
 
-
             self.training_lock.acquire()
             self.traversal_completed = False
             self.training_lock.release()
@@ -98,9 +95,9 @@ class Master(MasterServicer):
             self.evaluation_reward += request.value1
             self.evaluations_completed += request.value2
             if self.evaluations_completed % 100 == 0:
-                logging.info("Evaluations completed: %d/%d, current winnings bb/100: %f" % (self.evaluations_completed, N_EVALUATIONS,
+                logging.info("Evaluations completed: %d/%d, current winnings bb/100: %f" % (self.evaluations_completed, N_EVAL_HANDS,
                                                                                             self.evaluation_reward/(100*self.evaluations_completed)))
-            evaluations_left = N_EVALUATIONS - self.evaluations_completed
+            evaluations_left = N_EVAL_HANDS - self.evaluations_completed
             if not evaluations_left > 0:
                 logging.info("Final evaluation winnings bb/100: %f (sample size: %d)" % (self.evaluation_reward/(100*self.evaluations_completed),
                                                                                          self.evaluations_completed))
@@ -111,66 +108,3 @@ class Master(MasterServicer):
         self.evaluation_lock.release()
         self.evaluation_counter_lock.release()
         return IntMessage(value=evaluations_left)
-
-
-class Slave(SlaveServicer):
-    def __init__(self):
-        self.identifier = None
-        self.traverser_que = Queue()
-        self.evaluation_que = Queue()
-        Process(target=self._background_process, args=()).start()
-
-    def _background_process(self):
-        Thread(target=self._evaluate_background_thread, args=()).start()
-        Thread(target=self._traverse_background_thread, args=()).start()
-
-    def _evaluate_background_thread(self):
-        while True:
-            _ = self.evaluation_que.get()
-            process_count = 0
-            traverse_processes = [
-                Process(target=eval_process, args=(EVAL_ENVS_PER_PROCESS,))
-                for n in range(N_TRAVERSE_PROCESSES)
-            ]
-            for p in traverse_processes:
-                process_count += 1
-                logging.info("starting traversal process %d" % process_count)
-                p.start()
-            for p in traverse_processes:
-                p.join()
-                process_count -= 1
-                logging.info("joined traversal process %d" % process_count)
-
-    def _traverse_background_thread(self):
-        regret_ques = [Queue(maxsize=1000) for _ in range(N_PLAYERS)]
-        strategy_ques = [Queue(maxsize=1000) for _ in range(N_PLAYERS)]
-        que_processors = [Process(target=clear_queue_process, args=(regret_ques, strategy_ques)) for _ in range(N_QUE_PROCESS)]
-        for p in que_processors:
-            p.start()
-        while True:
-            traverser = self.traverser_que.get()
-            process_count = 0
-            traverse_processes = [
-                Process(target=traverse_process, args=(N_CONC_TRAVERSALS_PER_PROCESS, traverser, regret_ques[traverser], strategy_ques))
-                for n in range(N_TRAVERSE_PROCESSES)
-            ]
-            for p in traverse_processes:
-                process_count += 1
-                logging.info("starting traversal process %d" % process_count)
-                p.start()
-            for p in traverse_processes:
-                p.join()
-                process_count -= 1
-                logging.info("joined traversal process %d" % process_count)
-
-    def SetIdentifier(self, request, context):
-        self.identifier = request.value
-        return Empty()
-
-    def RunTraversals(self, request, context):
-        self.traverser_que.put(request.value)
-        return Empty()
-
-    def RunEvaluations(self, request, context):
-        self.evaluation_que.put(None)
-        return Empty()
