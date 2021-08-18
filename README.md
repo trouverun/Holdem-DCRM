@@ -2,7 +2,15 @@
 
 Implementantion of the regret minimization method described in the paper "Deep Counterfactual Regret Minimization" (https://arxiv.org/abs/1811.00164) for NL holdem
 
-## Usage (TODO)
+
+## TODO:
+- Clean up properly after execution, fix memory leakage from zombie processes [ ]
+- Sync model parameters in case of multiple server hosts [ ]
+- Better evaluation [ ]
+- Implement single deep counterfactual regret minimization (https://arxiv.org/abs/1901.07621) [ ]
+
+
+## Usage
 ### Configure the hosts in config.py
 ```python
 # Host responsible for coordinating the algorithm execution, 
