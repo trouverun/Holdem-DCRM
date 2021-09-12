@@ -8,6 +8,7 @@ SLAVE_HOSTS = [
     'localhost:50041'
 ]
 GLOBAL_STRATEGY_HOST = 'localhost:50050'
+GLOBAL_EVAL_HOST = 'localhost:50070'
 ACTOR_HOST_PLAYER_MAP = {
     'localhost:50051': [0, 1],
     #'localhost:50052': [1]
@@ -53,6 +54,11 @@ EVAL_HH_FREQUENCY = 10000
 EVAL_ENVS_PER_PROCESS = 1000
 N_EVAL_HANDS = 100000
 N_EVAL_PROCESSES = 5
+PB_C_BASE = 19652
+PB_C_INIT = 1.25
+DIRICHLET_ALPHA = 0.3
+EXPLORATION_FRACTION = 0.25
+INITIAL_VALUE = 1
 
 
 # ---------------------------------------- SERVER ----------------------------------------

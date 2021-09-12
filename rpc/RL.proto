@@ -13,6 +13,12 @@ message Prediction {
     bytes bet_prediction = 2;
 }
 
+message EvalPrediction {
+    bytes value_prediction = 1;
+    bytes action_prior_prediction = 2;
+    bytes bet_prior_prediction = 3;
+}
+
 message SampledData {
     int32 player = 1;
     bytes observations = 2;
@@ -57,6 +63,13 @@ service StrategyLearner {
     rpc AddStrategies(SampledData) returns (Empty);
     rpc TrainStrategy(Empty) returns (Empty);
     rpc AvailableStrategies(Empty) returns (IntMessage);
+}
+
+
+service Evaluator {
+    rpc GetValues(Observation) returns (EvalPrediction);
+    rpc AddValues(SampledData) returns (Empty);
+    rpc TrainValues(Empty) returns (Empty);
 }
 
 

@@ -377,6 +377,130 @@ class StrategyLearner(object):
             call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
+class EvaluatorStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.GetValues = channel.unary_unary(
+                '/Evaluator/GetValues',
+                request_serializer=rpc_dot_RL__pb2.Observation.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.EvalPrediction.FromString,
+                )
+        self.AddValues = channel.unary_unary(
+                '/Evaluator/AddValues',
+                request_serializer=rpc_dot_RL__pb2.SampledData.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.TrainValues = channel.unary_unary(
+                '/Evaluator/TrainValues',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+
+
+class EvaluatorServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def GetValues(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddValues(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TrainValues(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_EvaluatorServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'GetValues': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetValues,
+                    request_deserializer=rpc_dot_RL__pb2.Observation.FromString,
+                    response_serializer=rpc_dot_RL__pb2.EvalPrediction.SerializeToString,
+            ),
+            'AddValues': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddValues,
+                    request_deserializer=rpc_dot_RL__pb2.SampledData.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'TrainValues': grpc.unary_unary_rpc_method_handler(
+                    servicer.TrainValues,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'Evaluator', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+ # This class is part of an EXPERIMENTAL API.
+class Evaluator(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetValues(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Evaluator/GetValues',
+            rpc_dot_RL__pb2.Observation.SerializeToString,
+            rpc_dot_RL__pb2.EvalPrediction.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AddValues(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Evaluator/AddValues',
+            rpc_dot_RL__pb2.SampledData.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TrainValues(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Evaluator/TrainValues',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+
 class MasterStub(object):
     """Missing associated documentation comment in .proto file."""
 
