@@ -7,7 +7,7 @@ from threading import Lock
 from rpc.RL_pb2 import Empty, IntMessage
 from server.util import Reservoir, Learner
 from server.networks import StrategyNetwork
-from config import STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, OBS_SHAPE, N_BET_BUCKETS, N_EPOCHS
+from config import LINEAR_CFR, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, OBS_SHAPE, N_BET_BUCKETS, N_EPOCHS
 
 
 class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
@@ -16,7 +16,7 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         logging.info('Regret learner using device %s' % self.device)
         super(StrategyLearner, self).__init__(self.device)
         self.strategy_lock = Lock()
-        self.strategy_reservoir = Reservoir()
+        self.strategy_reservoir = Reservoir(save_weights=LINEAR_CFR)
         self.strategy_iterations = 0
 
         self.gpu_lock = gpu_lock
@@ -66,7 +66,10 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         action_strategy = np.frombuffer(request.action_data, dtype=np.float32).reshape(request.shape, 4)
         bet_strategy = np.frombuffer(request.bet_data, dtype=np.float32).reshape(request.shape, N_BET_BUCKETS)
         self.strategy_lock.acquire()
-        self.strategy_reservoir.add(observations, obs_counts, action_strategy, bet_strategy)
+        weights = None
+        if LINEAR_CFR:
+            weights = np.expand_dims(np.repeat(self.strategy_iterations+1, observations.shape[0]), 1)
+        self.strategy_reservoir.add(observations, obs_counts, action_strategy, bet_strategy, weights=weights)
         self.strategy_lock.release()
         return Empty()
 
@@ -90,8 +93,12 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         obs_count = self.strategy_reservoir.obs_count
         actions = self.strategy_reservoir.actions
         bets = self.strategy_reservoir.bets
+        iteration = self.strategy_iterations+1
+        weights = None
+        if LINEAR_CFR:
+            weights = self.strategy_reservoir.weights
         self._training_loop(self.strategy_net, optimizer, self.strategy_loss, obs, obs_count, actions, bets, train_indices,
-                            validation_indices, scheduler, 'iter')
+                            validation_indices, scheduler, 'iter', iteration, weights)
         self.strategy_iterations += 1
         torch.save(self.strategy_net.state_dict(), 'states/strategy/strategy_net_%d' % self.strategy_iterations)
         self.gpu_lock.release()

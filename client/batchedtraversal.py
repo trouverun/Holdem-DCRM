@@ -145,7 +145,7 @@ class BatchedTraversal:
             previous_observation = node.observation_history[node.observation_count-1]
             acting_player = previous_observation[indices.ACTING_PLAYER]
             # If the hand is over, we are only feeding junk actions to get the end of hand rewards back for each player
-            action_dont_care = previous_observation[indices.DELAYED_REWARD]
+            action_dont_care = previous_observation[indices.HAND_IS_OVER]
             node.add_regrets(previous_observation, ar, br)
             parent_is_traverser = False
             if acting_player == self.traverser:

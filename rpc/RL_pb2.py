@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x0crpc/RL.proto\"w\n\x0bObservation\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\r\n\x05shape\x18\x04 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x05 \x01(\x05\"?\n\nPrediction\x12\x19\n\x11\x61\x63tion_prediction\x18\x01 \x01(\x0c\x12\x16\n\x0e\x62\x65t_prediction\x18\x02 \x01(\x0c\"i\n\x0e\x45valPrediction\x12\x18\n\x10value_prediction\x18\x01 \x01(\x0c\x12\x1f\n\x17\x61\x63tion_prior_prediction\x18\x02 \x01(\x0c\x12\x1c\n\x14\x62\x65t_prior_prediction\x18\x03 \x01(\x0c\"\x9e\x01\n\x0bSampledData\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\x13\n\x0b\x61\x63tion_data\x18\x04 \x01(\x0c\x12\x10\n\x08\x62\x65t_data\x18\x05 \x01(\x0c\x12\r\n\x05shape\x18\x06 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x07 \x01(\x05\"\x1b\n\nIntMessage\x12\r\n\x05value\x18\x01 \x01(\x05\"-\n\x0bPairMessage\x12\x0e\n\x06value1\x18\x01 \x01(\x05\x12\x0e\n\x06value2\x18\x02 \x01(\x05\"5\n\tSelection\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x18\n\x10strategy_version\x18\x02 \x01(\x05\"\x07\n\x05\x45mpty2\x7f\n\x05\x41\x63tor\x12\'\n\nGetRegrets\x12\x0c.Observation\x1a\x0b.Prediction\x12*\n\rGetStrategies\x12\x0c.Observation\x1a\x0b.Prediction\x12!\n\x0bSetStrategy\x12\n.Selection\x1a\x06.Empty2\x84\x01\n\rRegretLearner\x12\"\n\nAddRegrets\x12\x0c.SampledData\x1a\x06.Empty\x12#\n\x0cTrainRegrets\x12\x0b.IntMessage\x1a\x06.Empty\x12*\n\x13\x41vailableStrategies\x12\x06.Empty\x1a\x0b.IntMessage2\x85\x01\n\x0fStrategyLearner\x12%\n\rAddStrategies\x12\x0c.SampledData\x1a\x06.Empty\x12\x1f\n\rTrainStrategy\x12\x06.Empty\x1a\x06.Empty\x12*\n\x13\x41vailableStrategies\x12\x06.Empty\x1a\x0b.IntMessage2y\n\tEvaluator\x12*\n\tGetValues\x12\x0c.Observation\x1a\x0f.EvalPrediction\x12!\n\tAddValues\x12\x0c.SampledData\x1a\x06.Empty\x12\x1d\n\x0bTrainValues\x12\x06.Empty\x1a\x06.Empty2h\n\x06Master\x12-\n\x11\x43ompleteTraversal\x12\x0b.IntMessage\x1a\x0b.IntMessage\x12/\n\x12\x43ompleteEvaluation\x12\x0c.PairMessage\x1a\x0b.IntMessage2u\n\x05Slave\x12$\n\rSetIdentifier\x12\x0b.IntMessage\x1a\x06.Empty\x12$\n\rRunTraversals\x12\x0b.IntMessage\x1a\x06.Empty\x12 \n\x0eRunEvaluations\x12\x06.Empty\x1a\x06.Emptyb\x06proto3'
+  serialized_pb=b'\n\x0crpc/RL.proto\"w\n\x0bObservation\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\r\n\x05shape\x18\x04 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x05 \x01(\x05\"?\n\nPrediction\x12\x19\n\x11\x61\x63tion_prediction\x18\x01 \x01(\x0c\x12\x16\n\x0e\x62\x65t_prediction\x18\x02 \x01(\x0c\"\x9e\x01\n\x0bSampledData\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\x13\n\x0b\x61\x63tion_data\x18\x04 \x01(\x0c\x12\x10\n\x08\x62\x65t_data\x18\x05 \x01(\x0c\x12\r\n\x05shape\x18\x06 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x07 \x01(\x05\"\x1b\n\nIntMessage\x12\r\n\x05value\x18\x01 \x01(\x05\"-\n\x0bPairMessage\x12\x0e\n\x06value1\x18\x01 \x01(\x05\x12\x0e\n\x06value2\x18\x02 \x01(\x05\"5\n\tSelection\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x18\n\x10strategy_version\x18\x02 \x01(\x05\"\x07\n\x05\x45mpty\"i\n\x0e\x45valPrediction\x12\x18\n\x10value_prediction\x18\x01 \x01(\x0c\x12\x1f\n\x17\x61\x63tion_prior_prediction\x18\x02 \x01(\x0c\x12\x1c\n\x14\x62\x65t_prior_prediction\x18\x03 \x01(\x0c\"\xb4\x01\n\x0fSampledEvalData\x12\x0e\n\x06player\x18\x01 \x01(\x05\x12\x14\n\x0cobservations\x18\x02 \x01(\x0c\x12\x1a\n\x12observation_counts\x18\x03 \x01(\x0c\x12\x0e\n\x06values\x18\x04 \x01(\x0c\x12\x14\n\x0c\x61\x63tion_prior\x18\x05 \x01(\x0c\x12\x11\n\tbet_prior\x18\x06 \x01(\x0c\x12\r\n\x05shape\x18\x07 \x01(\x05\x12\x17\n\x0fsequence_length\x18\x08 \x01(\x05\x32\x7f\n\x05\x41\x63tor\x12\'\n\nGetRegrets\x12\x0c.Observation\x1a\x0b.Prediction\x12*\n\rGetStrategies\x12\x0c.Observation\x1a\x0b.Prediction\x12!\n\x0bSetStrategy\x12\n.Selection\x1a\x06.Empty2\x84\x01\n\rRegretLearner\x12\"\n\nAddRegrets\x12\x0c.SampledData\x1a\x06.Empty\x12#\n\x0cTrainRegrets\x12\x0b.IntMessage\x1a\x06.Empty\x12*\n\x13\x41vailableStrategies\x12\x06.Empty\x1a\x0b.IntMessage2\x85\x01\n\x0fStrategyLearner\x12%\n\rAddStrategies\x12\x0c.SampledData\x1a\x06.Empty\x12\x1f\n\rTrainStrategy\x12\x06.Empty\x1a\x06.Empty\x12*\n\x13\x41vailableStrategies\x12\x06.Empty\x1a\x0b.IntMessage2}\n\tEvaluator\x12*\n\tGetValues\x12\x0c.Observation\x1a\x0f.EvalPrediction\x12%\n\tAddValues\x12\x10.SampledEvalData\x1a\x06.Empty\x12\x1d\n\x0bTrainValues\x12\x06.Empty\x1a\x06.Empty2S\n\x06Master\x12\'\n\x10RequestTraversal\x12\x06.Empty\x1a\x0b.IntMessage\x12 \n\x0e\x45xitWorkerPool\x12\x06.Empty\x1a\x06.Empty2S\n\x05Slave\x12$\n\rSetIdentifier\x12\x0b.IntMessage\x1a\x06.Empty\x12$\n\rRunTraversals\x12\x0b.IntMessage\x1a\x06.Emptyb\x06proto3'
 )
 
 
@@ -124,52 +124,6 @@ _PREDICTION = _descriptor.Descriptor(
 )
 
 
-_EVALPREDICTION = _descriptor.Descriptor(
-  name='EvalPrediction',
-  full_name='EvalPrediction',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  create_key=_descriptor._internal_create_key,
-  fields=[
-    _descriptor.FieldDescriptor(
-      name='value_prediction', full_name='EvalPrediction.value_prediction', index=0,
-      number=1, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"",
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='action_prior_prediction', full_name='EvalPrediction.action_prior_prediction', index=1,
-      number=2, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"",
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='bet_prior_prediction', full_name='EvalPrediction.bet_prior_prediction', index=2,
-      number=3, type=12, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"",
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  serialized_options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=202,
-  serialized_end=307,
-)
-
-
 _SAMPLEDDATA = _descriptor.Descriptor(
   name='SampledData',
   full_name='SampledData',
@@ -239,8 +193,8 @@ _SAMPLEDDATA = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=310,
-  serialized_end=468,
+  serialized_start=203,
+  serialized_end=361,
 )
 
 
@@ -271,8 +225,8 @@ _INTMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=470,
-  serialized_end=497,
+  serialized_start=363,
+  serialized_end=390,
 )
 
 
@@ -310,8 +264,8 @@ _PAIRMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=499,
-  serialized_end=544,
+  serialized_start=392,
+  serialized_end=437,
 )
 
 
@@ -349,8 +303,8 @@ _SELECTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=546,
-  serialized_end=599,
+  serialized_start=439,
+  serialized_end=492,
 )
 
 
@@ -374,18 +328,146 @@ _EMPTY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=601,
+  serialized_start=494,
+  serialized_end=501,
+)
+
+
+_EVALPREDICTION = _descriptor.Descriptor(
+  name='EvalPrediction',
+  full_name='EvalPrediction',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='value_prediction', full_name='EvalPrediction.value_prediction', index=0,
+      number=1, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='action_prior_prediction', full_name='EvalPrediction.action_prior_prediction', index=1,
+      number=2, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bet_prior_prediction', full_name='EvalPrediction.bet_prior_prediction', index=2,
+      number=3, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=503,
   serialized_end=608,
+)
+
+
+_SAMPLEDEVALDATA = _descriptor.Descriptor(
+  name='SampledEvalData',
+  full_name='SampledEvalData',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='player', full_name='SampledEvalData.player', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='observations', full_name='SampledEvalData.observations', index=1,
+      number=2, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='observation_counts', full_name='SampledEvalData.observation_counts', index=2,
+      number=3, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='values', full_name='SampledEvalData.values', index=3,
+      number=4, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='action_prior', full_name='SampledEvalData.action_prior', index=4,
+      number=5, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bet_prior', full_name='SampledEvalData.bet_prior', index=5,
+      number=6, type=12, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"",
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='shape', full_name='SampledEvalData.shape', index=6,
+      number=7, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='sequence_length', full_name='SampledEvalData.sequence_length', index=7,
+      number=8, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=611,
+  serialized_end=791,
 )
 
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
 DESCRIPTOR.message_types_by_name['Prediction'] = _PREDICTION
-DESCRIPTOR.message_types_by_name['EvalPrediction'] = _EVALPREDICTION
 DESCRIPTOR.message_types_by_name['SampledData'] = _SAMPLEDDATA
 DESCRIPTOR.message_types_by_name['IntMessage'] = _INTMESSAGE
 DESCRIPTOR.message_types_by_name['PairMessage'] = _PAIRMESSAGE
 DESCRIPTOR.message_types_by_name['Selection'] = _SELECTION
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
+DESCRIPTOR.message_types_by_name['EvalPrediction'] = _EVALPREDICTION
+DESCRIPTOR.message_types_by_name['SampledEvalData'] = _SAMPLEDEVALDATA
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Observation = _reflection.GeneratedProtocolMessageType('Observation', (_message.Message,), {
@@ -401,13 +483,6 @@ Prediction = _reflection.GeneratedProtocolMessageType('Prediction', (_message.Me
   # @@protoc_insertion_point(class_scope:Prediction)
   })
 _sym_db.RegisterMessage(Prediction)
-
-EvalPrediction = _reflection.GeneratedProtocolMessageType('EvalPrediction', (_message.Message,), {
-  'DESCRIPTOR' : _EVALPREDICTION,
-  '__module__' : 'rpc.RL_pb2'
-  # @@protoc_insertion_point(class_scope:EvalPrediction)
-  })
-_sym_db.RegisterMessage(EvalPrediction)
 
 SampledData = _reflection.GeneratedProtocolMessageType('SampledData', (_message.Message,), {
   'DESCRIPTOR' : _SAMPLEDDATA,
@@ -444,6 +519,20 @@ Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), {
   })
 _sym_db.RegisterMessage(Empty)
 
+EvalPrediction = _reflection.GeneratedProtocolMessageType('EvalPrediction', (_message.Message,), {
+  'DESCRIPTOR' : _EVALPREDICTION,
+  '__module__' : 'rpc.RL_pb2'
+  # @@protoc_insertion_point(class_scope:EvalPrediction)
+  })
+_sym_db.RegisterMessage(EvalPrediction)
+
+SampledEvalData = _reflection.GeneratedProtocolMessageType('SampledEvalData', (_message.Message,), {
+  'DESCRIPTOR' : _SAMPLEDEVALDATA,
+  '__module__' : 'rpc.RL_pb2'
+  # @@protoc_insertion_point(class_scope:SampledEvalData)
+  })
+_sym_db.RegisterMessage(SampledEvalData)
+
 
 
 _ACTOR = _descriptor.ServiceDescriptor(
@@ -453,8 +542,8 @@ _ACTOR = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=610,
-  serialized_end=737,
+  serialized_start=793,
+  serialized_end=920,
   methods=[
   _descriptor.MethodDescriptor(
     name='GetRegrets',
@@ -499,8 +588,8 @@ _REGRETLEARNER = _descriptor.ServiceDescriptor(
   index=1,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=740,
-  serialized_end=872,
+  serialized_start=923,
+  serialized_end=1055,
   methods=[
   _descriptor.MethodDescriptor(
     name='AddRegrets',
@@ -545,8 +634,8 @@ _STRATEGYLEARNER = _descriptor.ServiceDescriptor(
   index=2,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=875,
-  serialized_end=1008,
+  serialized_start=1058,
+  serialized_end=1191,
   methods=[
   _descriptor.MethodDescriptor(
     name='AddStrategies',
@@ -591,8 +680,8 @@ _EVALUATOR = _descriptor.ServiceDescriptor(
   index=3,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=1010,
-  serialized_end=1131,
+  serialized_start=1193,
+  serialized_end=1318,
   methods=[
   _descriptor.MethodDescriptor(
     name='GetValues',
@@ -609,7 +698,7 @@ _EVALUATOR = _descriptor.ServiceDescriptor(
     full_name='Evaluator.AddValues',
     index=1,
     containing_service=None,
-    input_type=_SAMPLEDDATA,
+    input_type=_SAMPLEDEVALDATA,
     output_type=_EMPTY,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
@@ -637,26 +726,26 @@ _MASTER = _descriptor.ServiceDescriptor(
   index=4,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=1133,
-  serialized_end=1237,
+  serialized_start=1320,
+  serialized_end=1403,
   methods=[
   _descriptor.MethodDescriptor(
-    name='CompleteTraversal',
-    full_name='Master.CompleteTraversal',
+    name='RequestTraversal',
+    full_name='Master.RequestTraversal',
     index=0,
     containing_service=None,
-    input_type=_INTMESSAGE,
+    input_type=_EMPTY,
     output_type=_INTMESSAGE,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),
   _descriptor.MethodDescriptor(
-    name='CompleteEvaluation',
-    full_name='Master.CompleteEvaluation',
+    name='ExitWorkerPool',
+    full_name='Master.ExitWorkerPool',
     index=1,
     containing_service=None,
-    input_type=_PAIRMESSAGE,
-    output_type=_INTMESSAGE,
+    input_type=_EMPTY,
+    output_type=_EMPTY,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,
   ),
@@ -673,8 +762,8 @@ _SLAVE = _descriptor.ServiceDescriptor(
   index=5,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=1239,
-  serialized_end=1356,
+  serialized_start=1405,
+  serialized_end=1488,
   methods=[
   _descriptor.MethodDescriptor(
     name='SetIdentifier',
@@ -692,16 +781,6 @@ _SLAVE = _descriptor.ServiceDescriptor(
     index=1,
     containing_service=None,
     input_type=_INTMESSAGE,
-    output_type=_EMPTY,
-    serialized_options=None,
-    create_key=_descriptor._internal_create_key,
-  ),
-  _descriptor.MethodDescriptor(
-    name='RunEvaluations',
-    full_name='Slave.RunEvaluations',
-    index=2,
-    containing_service=None,
-    input_type=_EMPTY,
     output_type=_EMPTY,
     serialized_options=None,
     create_key=_descriptor._internal_create_key,

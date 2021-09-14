@@ -13,12 +13,6 @@ message Prediction {
     bytes bet_prediction = 2;
 }
 
-message EvalPrediction {
-    bytes value_prediction = 1;
-    bytes action_prior_prediction = 2;
-    bytes bet_prior_prediction = 3;
-}
-
 message SampledData {
     int32 player = 1;
     bytes observations = 2;
@@ -65,21 +59,36 @@ service StrategyLearner {
     rpc AvailableStrategies(Empty) returns (IntMessage);
 }
 
+message EvalPrediction {
+    bytes value_prediction = 1;
+    bytes action_prior_prediction = 2;
+    bytes bet_prior_prediction = 3;
+}
+
+message SampledEvalData {
+    int32 player = 1;
+    bytes observations = 2;
+    bytes observation_counts = 3;
+    bytes values = 4;
+    bytes action_prior = 5;
+    bytes bet_prior = 6;
+    int32 shape = 7;
+    int32 sequence_length = 8;
+}
 
 service Evaluator {
     rpc GetValues(Observation) returns (EvalPrediction);
-    rpc AddValues(SampledData) returns (Empty);
+    rpc AddValues(SampledEvalData) returns (Empty);
     rpc TrainValues(Empty) returns (Empty);
 }
 
 
 service Master {
-    rpc CompleteTraversal(IntMessage) returns (IntMessage);
-    rpc CompleteEvaluation(PairMessage) returns (IntMessage);
+    rpc RequestTraversal(Empty) returns (IntMessage);
+    rpc ExitWorkerPool(Empty) returns (Empty);
 }
 
 service Slave {
     rpc SetIdentifier(IntMessage) returns (Empty);
     rpc RunTraversals(IntMessage) returns (Empty);
-    rpc RunEvaluations(Empty) returns (Empty);
 }

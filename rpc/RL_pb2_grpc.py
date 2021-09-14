@@ -393,7 +393,7 @@ class EvaluatorStub(object):
                 )
         self.AddValues = channel.unary_unary(
                 '/Evaluator/AddValues',
-                request_serializer=rpc_dot_RL__pb2.SampledData.SerializeToString,
+                request_serializer=rpc_dot_RL__pb2.SampledEvalData.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
         self.TrainValues = channel.unary_unary(
@@ -434,7 +434,7 @@ def add_EvaluatorServicer_to_server(servicer, server):
             ),
             'AddValues': grpc.unary_unary_rpc_method_handler(
                     servicer.AddValues,
-                    request_deserializer=rpc_dot_RL__pb2.SampledData.FromString,
+                    request_deserializer=rpc_dot_RL__pb2.SampledEvalData.FromString,
                     response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
             ),
             'TrainValues': grpc.unary_unary_rpc_method_handler(
@@ -479,7 +479,7 @@ class Evaluator(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/Evaluator/AddValues',
-            rpc_dot_RL__pb2.SampledData.SerializeToString,
+            rpc_dot_RL__pb2.SampledEvalData.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -510,28 +510,28 @@ class MasterStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.CompleteTraversal = channel.unary_unary(
-                '/Master/CompleteTraversal',
-                request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+        self.RequestTraversal = channel.unary_unary(
+                '/Master/RequestTraversal',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
                 )
-        self.CompleteEvaluation = channel.unary_unary(
-                '/Master/CompleteEvaluation',
-                request_serializer=rpc_dot_RL__pb2.PairMessage.SerializeToString,
-                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+        self.ExitWorkerPool = channel.unary_unary(
+                '/Master/ExitWorkerPool',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
 
 
 class MasterServicer(object):
     """Missing associated documentation comment in .proto file."""
 
-    def CompleteTraversal(self, request, context):
+    def RequestTraversal(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def CompleteEvaluation(self, request, context):
+    def ExitWorkerPool(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -540,15 +540,15 @@ class MasterServicer(object):
 
 def add_MasterServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'CompleteTraversal': grpc.unary_unary_rpc_method_handler(
-                    servicer.CompleteTraversal,
-                    request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+            'RequestTraversal': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestTraversal,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                     response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
             ),
-            'CompleteEvaluation': grpc.unary_unary_rpc_method_handler(
-                    servicer.CompleteEvaluation,
-                    request_deserializer=rpc_dot_RL__pb2.PairMessage.FromString,
-                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            'ExitWorkerPool': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExitWorkerPool,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -561,7 +561,7 @@ class Master(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def CompleteTraversal(request,
+    def RequestTraversal(request,
             target,
             options=(),
             channel_credentials=None,
@@ -570,14 +570,14 @@ class Master(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Master/CompleteTraversal',
-            rpc_dot_RL__pb2.IntMessage.SerializeToString,
+        return grpc.experimental.unary_unary(request, target, '/Master/RequestTraversal',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
             rpc_dot_RL__pb2.IntMessage.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def CompleteEvaluation(request,
+    def ExitWorkerPool(request,
             target,
             options=(),
             channel_credentials=None,
@@ -586,9 +586,9 @@ class Master(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Master/CompleteEvaluation',
-            rpc_dot_RL__pb2.PairMessage.SerializeToString,
-            rpc_dot_RL__pb2.IntMessage.FromString,
+        return grpc.experimental.unary_unary(request, target, '/Master/ExitWorkerPool',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -612,11 +612,6 @@ class SlaveStub(object):
                 request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
-        self.RunEvaluations = channel.unary_unary(
-                '/Slave/RunEvaluations',
-                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
-                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
-                )
 
 
 class SlaveServicer(object):
@@ -634,12 +629,6 @@ class SlaveServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def RunEvaluations(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
 
 def add_SlaveServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -651,11 +640,6 @@ def add_SlaveServicer_to_server(servicer, server):
             'RunTraversals': grpc.unary_unary_rpc_method_handler(
                     servicer.RunTraversals,
                     request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
-                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
-            ),
-            'RunEvaluations': grpc.unary_unary_rpc_method_handler(
-                    servicer.RunEvaluations,
-                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                     response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
             ),
     }
@@ -696,22 +680,6 @@ class Slave(object):
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/Slave/RunTraversals',
             rpc_dot_RL__pb2.IntMessage.SerializeToString,
-            rpc_dot_RL__pb2.Empty.FromString,
-            options, channel_credentials,
-            call_credentials, compression, wait_for_ready, timeout, metadata)
-
-    @staticmethod
-    def RunEvaluations(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Slave/RunEvaluations',
-            rpc_dot_RL__pb2.Empty.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -11,7 +11,8 @@ from multiprocessing import Event
 from server.ActorServer import Actor
 from server.RegretServer import RegretLearner
 from server.StrategyServer import StrategyLearner
-from config import N_THREADPOOL_WORKERS, GLOBAL_STRATEGY_HOST, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP
+from server.EvaluationServer import EvaluationServer
+from config import N_THREADPOOL_WORKERS, GLOBAL_STRATEGY_HOST, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP, GLOBAL_EVAL_HOST
 
 
 def _run_actor_server(bind_address, player_list, gpu_lock):
@@ -21,6 +22,16 @@ def _run_actor_server(bind_address, player_list, gpu_lock):
     server.add_insecure_port(bind_address)
     server.start()
     logging.info("Actor server serving at %s", bind_address)
+    server.wait_for_termination()
+
+
+def _run_eval_server(bind_address, gpu_lock, ready):
+    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
+    server = grpc.server(ThreadPoolExecutor(max_workers=N_THREADPOOL_WORKERS), options=options)
+    RL_pb2_grpc.add_EvaluatorServicer_to_server(EvaluationServer(gpu_lock, ready), server)
+    server.add_insecure_port(bind_address)
+    server.start()
+    logging.info("Eval server serving at %s", bind_address)
     server.wait_for_termination()
 
 
@@ -49,6 +60,7 @@ class Server:
         self.regret_processes = []
         self.actor_processes = []
         self.strategy_process = None
+        self.eval_process = None
 
     def cleanup(self):
         for p in self.regret_processes:
@@ -57,6 +69,8 @@ class Server:
             p.terminate()
         if self.strategy_process is not None:
             self.strategy_process.terminate()
+        if self.eval_process is not None:
+            self.eval_process.terminate()
         logging.info("server cleanup done")
 
     def serve(self, hosts):
@@ -73,6 +87,7 @@ class Server:
 
         reg_readies = []
         strat_ready = None
+        eval_ready = None
         gpu_lock = Lock()
 
         for host in hosts:
@@ -85,6 +100,9 @@ class Server:
             elif host == GLOBAL_STRATEGY_HOST:
                 strat_ready = Event()
                 self.strategy_process = multiprocessing.Process(target=_run_strategy_learner_server, args=(host, gpu_lock, strat_ready))
+            elif host == GLOBAL_EVAL_HOST:
+                eval_ready = Event()
+                self.eval_process = multiprocessing.Process(target=_run_eval_server, args=(host, gpu_lock, eval_ready))
             else:
                 raise ValueError("Unrecognized hostname given to serve(), check the config file.")
 
@@ -94,5 +112,8 @@ class Server:
         if self.strategy_process is not None:
             self.strategy_process.start()
             strat_ready.wait()
+        if self.eval_process is not None:
+            self.eval_process.start()
+            eval_ready.wait()
         for p in self.actor_processes:
             p.start()

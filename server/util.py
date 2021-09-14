@@ -60,6 +60,11 @@ class Learner:
                     x_counts = torch.from_numpy(obs_counts[batch_indices]).type(torch.LongTensor).squeeze(1)
                     y_action = torch.from_numpy(actions[batch_indices]).type(torch.FloatTensor).to(self.device)
                     y_bet = torch.from_numpy(bets[batch_indices]).type(torch.FloatTensor).to(self.device)
+                    # Discounting in the case of linear CFR
+                    if weights is not None:
+                        batch_weights = torch.from_numpy(weights[batch_indices]).type(torch.LongTensor).to(self.device)
+                        y_action = 2 / iteration * batch_weights * y_action
+                        y_bet = 2 / iteration * batch_weights * y_bet
                     action_pred, bet_pred = net(x, x_counts)
                     loss_a = loss_fn(action_pred, y_action)
                     loss_b = loss_fn(bet_pred, y_bet)
@@ -86,7 +91,7 @@ class Learner:
 
 
 class BatchManager:
-    def __init__(self, sample_que):
+    def __init__(self, sample_que, predict_value=False):
         self.sample_que = sample_que
         self.current_batch_id = 0
         self.current_batch_sizes = [0]
@@ -98,6 +103,9 @@ class BatchManager:
         self.batch_read_counts = []
         self.action_predictions = dict()
         self.bet_predictions = dict()
+        self.predict_value = predict_value
+        if predict_value:
+            self.value_predictions = dict()
 
     def finalize_batch(self):
         current_batch = self.current_batch_id
@@ -126,9 +134,10 @@ class BatchManager:
                 batch_ids.append(self.current_batch_id)
                 indices.append([*range(self.current_batch_sizes[current_batch], MAX_INFERENCE_BATCH_SIZE)])
                 self.current_batch_sizes[current_batch] = MAX_INFERENCE_BATCH_SIZE
-                self.tmp_batch_obs[current_batch_size:MAX_INFERENCE_BATCH_SIZE](observations[consumed:consumed + space_left])
-                self.tmp_batch_obs_count[current_batch_size:MAX_INFERENCE_BATCH_SIZE].append(
-                    counts[consumed:consumed + space_left])
+                self.tmp_batch_obs[current_batch_size:MAX_INFERENCE_BATCH_SIZE] = observations[consumed:consumed + space_left]
+
+                self.tmp_batch_obs_count[current_batch_size:MAX_INFERENCE_BATCH_SIZE] = counts[consumed:consumed + space_left]
+
                 self.finalize_batch()
                 self.data_added_events[current_batch].set()
                 self.batch_full_events[current_batch].set()
@@ -155,52 +164,70 @@ class BatchManager:
             self.data_added_events[current_batch].set()
         return batch_ids, indices
 
-    def add_batch_results(self, batch_id, action_preds, bet_preds):
+    def add_batch_results(self, batch_id, action_preds, bet_preds, value_preds=None):
         self.action_predictions[batch_id] = action_preds
         self.bet_predictions[batch_id] = bet_preds
+        if value_preds is not None:
+            self.value_predictions[batch_id] = value_preds
         self.batch_ready_events[batch_id].set()
 
     def get_batch_results(self, batch_id, indices):
         self.batch_read_counts[batch_id] += len(indices)
-        action_regrets = self.action_predictions[batch_id][indices]
-        bet_regrets = self.bet_predictions[batch_id][indices]
+        action_preds = self.action_predictions[batch_id][indices]
+        bet_preds = self.bet_predictions[batch_id][indices]
+        value_preds = None
+        if self.predict_value:
+            value_preds = self.value_predictions[batch_id][indices].copy()
         if self.batch_read_counts[batch_id] == self.current_batch_sizes[batch_id]:
             self.action_predictions.pop(batch_id)
             self.bet_predictions.pop(batch_id)
+            if self.predict_value:
+                self.value_predictions.pop(batch_id)
             self.data_added_events.pop(batch_id)
             self.batch_full_events.pop(batch_id)
             self.batch_ready_events.pop(batch_id)
-        return action_regrets, bet_regrets
+        return action_preds, bet_preds, value_preds
 
 
 class Reservoir:
-    def __init__(self):
+    def __init__(self, save_weights=False, save_value=False):
         self.sample_count = np.zeros(1, dtype=np.int64)
         self.obs = np.zeros([RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE], dtype=np.float32)
         self.obs_count = np.zeros([RESERVOIR_SIZE, 1])
+        if save_value:
+            self.values = np.zeros([RESERVOIR_SIZE, 1], dtype=np.float32)
         self.actions = np.zeros([RESERVOIR_SIZE, N_ACTIONS], dtype=np.float32)
         self.bets = np.zeros([RESERVOIR_SIZE, N_BET_BUCKETS], dtype=np.float32)
-        self.weights = np.zeros([RESERVOIR_SIZE, 1])
+        if save_weights:
+            self.weights = np.zeros([RESERVOIR_SIZE, 1])
 
-    def load_from_disk(self, sample_count_loc, obs_loc, obs_count_loc, action_loc, bet_loc):
+    def load_from_disk(self, sample_count_loc, obs_loc, obs_count_loc, action_loc, bet_loc, weight_loc=None, value_loc=None):
         try:
             self.sample_count = np.load(sample_count_loc)
             self.obs = np.load(obs_loc).reshape(RESERVOIR_SIZE, SEQUENCE_LENGTH, OBS_SHAPE)
             self.obs_count = np.load(obs_count_loc)
             self.actions = np.load(action_loc)
             self.bets = np.load(bet_loc)
+            if weight_loc:
+                self.weights = np.load(weight_loc)
+            if value_loc:
+                self.values = np.load(value_loc)
             return True
         except FileNotFoundError:
             return False
 
-    def save_to_disk(self, sample_count_loc, obs_loc, obs_count_loc, action_loc, bet_loc):
+    def save_to_disk(self, sample_count_loc, obs_loc, obs_count_loc, action_loc, bet_loc, weight_loc=None, value_loc=None):
         np.save(sample_count_loc, self.sample_count)
         np.save(obs_loc, self.obs)
         np.save(obs_count_loc, self.obs_count)
         np.save(action_loc, self.actions)
         np.save(bet_loc, self.bets)
+        if weight_loc:
+            np.save(weight_loc, self.weights)
+        if value_loc:
+            np.save(value_loc, self.values)
 
-    def add(self, obs, obs_counts, actions, bets, weights=None):
+    def add(self, obs, obs_counts, actions, bets, weights=None, values=None):
         count = self.sample_count[0]
         if count + obs.shape[0] < RESERVOIR_SIZE:
             self.obs[count:count + obs.shape[0]] = obs
@@ -209,6 +236,8 @@ class Reservoir:
             self.bets[count:count + obs.shape[0]] = bets
             if weights is not None:
                 self.weights[count:count + obs.shape[0]] = weights
+            if values is not None:
+                self.values[count:count + obs.shape[0]] = values
             self.sample_count += obs.shape[0]
         else:
             should_replace = (np.random.uniform(0, 1, obs.shape[0]) > (1 - RESERVOIR_SIZE / count)).astype(np.int32)
@@ -224,4 +253,6 @@ class Reservoir:
             self.bets[replace_indices] = bets[sample_indices]
             if weights is not None:
                 self.weights[replace_indices] = weights[sample_indices]
+            if values is not None:
+                self.values[replace_indices] = values[sample_indices]
 

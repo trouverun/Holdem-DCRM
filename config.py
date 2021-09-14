@@ -23,7 +23,7 @@ PLAYER_REGRET_HOST_MAP = {k: new_values for new_values, new_keys in zip(REGRET_H
 
 # -------------------------------------- GENERAL ---------------------------------------
 N_ITERATIONS = 25
-K = 1000
+K = 500
 
 
 # -------------------------------- LEARNING ENVIRONMENT --------------------------------
@@ -46,19 +46,18 @@ BET_BUCKETS = np.array([0.75, 1, 1.5, 2, 3])                     # Which (additi
 
 
 # ---------------------------------------- CLIENT ----------------------------------------
-N_TRAVERSE_PROCESSES = 5
+N_TRAVERSE_PROCESSES = 4
 N_CONC_TRAVERSALS_PER_PROCESS = 1
-N_QUE_PROCESS = 3
+N_QUE_PROCESS = 2
 CLIENT_SAMPLES_MIN_BATCH_SIZE = 1024                                 # Batch size for sampled regrets
-EVAL_HH_FREQUENCY = 10000
-EVAL_ENVS_PER_PROCESS = 1000
-N_EVAL_HANDS = 100000
-N_EVAL_PROCESSES = 5
 PB_C_BASE = 19652
 PB_C_INIT = 1.25
 DIRICHLET_ALPHA = 0.3
 EXPLORATION_FRACTION = 0.25
 INITIAL_VALUE = 1
+NUM_EVAL_LOOPS = 100
+NUM_EVAL_TRAINING_LOOPS = 50
+N_MONTE_CARLO_SIMS = 100
 
 
 # ---------------------------------------- SERVER ----------------------------------------
@@ -67,8 +66,8 @@ LINEAR_CFR = True
 SINGLE_NETWORK = False
 RESERVOIR_SIZE = int(5e6)                                        # How many samples are stored in each reservoir
 DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
-MAX_INFERENCE_BATCH_SIZE = 1024*10                               # Batch size for inferring regrets or strategies
-MAX_TRAIN_BATCH_SIZE = 1024*10                                   # Batch size when training networks
+MAX_INFERENCE_BATCH_SIZE = 1024*5                               # Batch size for inferring regrets or strategies
+MAX_TRAIN_BATCH_SIZE = 1024*5                                   # Batch size when training networks
 
 
 # --------------------------------- NETWORKS & TRAINING ----------------------------------
@@ -78,6 +77,9 @@ REGRET_LEARNING_RATE = 0.01
 STRATEGY_LEARNING_RATE = 0.01
 REGRET_WEIGHT_DECAY = 0.001
 STRATEGY_WEIGHT_DECAY = 0.001
+N_VALUE_P_EPOCHS = 150
+VALUE_P_LEARNING_RATE = 0.01
+VALUE_P_WEIGHT_DECAY = 0.001
 PATIENCE = 25
 improvement_eps = 1.05
 

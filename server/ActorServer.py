@@ -79,11 +79,9 @@ class Actor(RL_pb2_grpc.ActorServicer):
             action_predictions, bet_predictions = self.strategy_net(observations, counts)
             self.gpu_lock.release()
             self.player_strategy_locks[player].acquire()
-            self.strategy_batch_managers[player].add_batch_results(current_batch,
-                                                                   action_predictions.detach().cpu().numpy(), bet_predictions.detach().cpu().numpy())
+            self.strategy_batch_managers[player].add_batch_results(current_batch, action_predictions.detach().cpu().numpy(), bet_predictions.detach().cpu().numpy())
             self.player_strategy_locks[player].release()
             current_batch += 1
-
 
     def _add_regret_observations_to_batch(self, player, observations, counts):
         self.player_regret_locks[player].acquire()
@@ -99,15 +97,15 @@ class Actor(RL_pb2_grpc.ActorServicer):
 
     def _retrieve_regret_batch_result(self, player, batch_id, indices):
         self.player_regret_locks[player].acquire()
-        action_regrets, bet_regrets = self.regret_batch_managers[player].get_batch_results(batch_id, indices)
+        action_regrets, bet_regrets, _ = self.regret_batch_managers[player].get_batch_results(batch_id, indices)
         self.player_regret_locks[player].release()
         return action_regrets, bet_regrets
 
     def _retrieve_strategy_batch_result(self, player, batch_id, indices):
         self.player_strategy_locks[player].acquire()
-        action_regrets, bet_regrets = self.regret_batch_managers[player].get_batch_results(batch_id, indices)
+        action_policy, bet_policy, _ = self.strategy_batch_managers[player].get_batch_results(batch_id, indices)
         self.player_strategy_locks[player].release()
-        return action_regrets, bet_regrets
+        return action_policy, bet_policy
 
     def GetRegrets(self, request, context):
         player = int(request.player)

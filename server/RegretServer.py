@@ -17,7 +17,7 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         logging.info('Regret learner using device %s' % self.device)
         super(RegretLearner, self).__init__(self.device)
         self.regret_locks = {player: Lock() for player in player_list}
-        self.regret_reservoirs = {player: Reservoir() for player in player_list}
+        self.regret_reservoirs = {player: Reservoir(save_weights=LINEAR_CFR) for player in player_list}
         self.regret_iterations = np.zeros(N_PLAYERS)
 
         self.gpu_lock = gpu_lock
@@ -63,9 +63,12 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
                 os.makedirs('reservoirs/player_%d' % player)
 
             base_path = 'reservoirs/player_%d/' % player
+            weight_loc = None
+            if LINEAR_CFR:
+                weight_loc = base_path + 'regret_weights.npy'
             success = self.regret_reservoirs[player].load_from_disk(base_path + 'regret_samples.npy', base_path + 'regret_obs.npy',
                                                           base_path + 'regret_obs_count.npy', base_path + 'regret_actions.npy',
-                                                          base_path + 'regret_bets.npy')
+                                                          base_path + 'regret_bets.npy', weight_loc=weight_loc)
             if success:
                 logging.info('Succesfully recovered regret reservoir for player %d' % player)
             else:
@@ -81,8 +84,8 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         self.regret_locks[player].acquire()
         weights = None
         if LINEAR_CFR:
-            weights = np.expand_dims(np.repeat(self.regret_iterations[player], observations.shape[0]), 1)
-        self.regret_reservoirs[player].add(observations, obs_counts, action_regrets, bet_regrets, weights)
+            weights = np.expand_dims(np.repeat(self.regret_iterations[player]+1, observations.shape[0]), 1)
+        self.regret_reservoirs[player].add(observations, obs_counts, action_regrets, bet_regrets, weights=weights)
         self.regret_locks[player].release()
         return Empty()
 
@@ -107,7 +110,7 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         obs_count = self.regret_reservoirs[player].obs_count
         actions = self.regret_reservoirs[player].actions
         bets = self.regret_reservoirs[player].bets
-        iteration = self.regret_iterations[player]
+        iteration = self.regret_iterations[player]+1
         weights = None
         if LINEAR_CFR:
             weights = self.regret_reservoirs[player].weights
@@ -118,12 +121,16 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         torch.save(self.regret_net.state_dict(), 'states/regret/regret_net_player_%d' % player)
         self.gpu_lock.release()
         base_path = 'reservoirs/player_%d/' % player
+        weight_loc = None
+        if LINEAR_CFR:
+            weight_loc = base_path + 'regret_weights.npy'
         self.regret_reservoirs[player].save_to_disk(
             base_path + 'regret_samples.npy',
             base_path + 'regret_obs.npy',
             base_path + 'regret_obs_count.npy',
             base_path + 'regret_actions.npy',
-            base_path + 'regret_bets.npy'
+            base_path + 'regret_bets.npy',
+            weight_loc=weight_loc
         )
         self.regret_locks[player].release()
         return Empty()

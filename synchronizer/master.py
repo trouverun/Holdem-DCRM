@@ -2,10 +2,12 @@ import logging
 import grpc
 import time
 from multiprocessing import Process, Event, Lock
+from threading import Thread
 from rpc.RL_pb2 import IntMessage, Empty, Selection
 from rpc.RL_pb2_grpc import StrategyLearnerStub, RegretLearnerStub, MasterServicer, SlaveStub, ActorStub
 from config import SLAVE_HOSTS, N_PLAYERS, N_ITERATIONS, K, ACTOR_HOST_PLAYER_MAP, PLAYER_ACTOR_HOST_MAP, GLOBAL_STRATEGY_HOST, \
-    N_EVAL_HANDS, REGRET_HOST_PLAYER_MAP, PLAYER_REGRET_HOST_MAP
+    REGRET_HOST_PLAYER_MAP, PLAYER_REGRET_HOST_MAP, N_TRAVERSE_PROCESSES, NUM_EVAL_LOOPS
+from client.evaluator import run_evaluations
 
 
 class Master(MasterServicer):
@@ -14,14 +16,11 @@ class Master(MasterServicer):
         self.worker_evaluations_ready = Event()
         self.traversal_counter_lock = Lock()
         self.evaluation_counter_lock = Lock()
-        self.training_lock = Lock()
-        self.traversal_completed = False
-        self.evaluation_lock = Lock()
-        self.eval_completed = False
-        self.traversals_completed = 0
-        self.evaluation_reward = 0
-        self.evaluations_completed = 0
-        Process(target=self._main_loop, args=()).start()
+        self.traversal_lock = Lock()
+        self.worker_lock = Lock()
+        self.traversals_left = K
+        self.workers_remaining = len(SLAVE_HOSTS)*N_TRAVERSE_PROCESSES
+        Thread(target=self._main_loop, args=()).start()
 
     def _main_loop(self):
         options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
@@ -40,9 +39,13 @@ class Master(MasterServicer):
             start = time.time()
             for player in range(N_PLAYERS):
                 regret_stub = RegretLearnerStub(regret_channels[PLAYER_REGRET_HOST_MAP[player]])
-                self.training_lock.acquire()
-                self.traversal_completed = False
-                self.training_lock.release()
+                self.traversal_lock.acquire()
+                self.traversals_left = K
+                self.traversal_lock.release()
+                self.worker_lock.acquire()
+                self.worker_traversals_ready.clear()
+                self.workers_remaining = len(SLAVE_HOSTS)*N_TRAVERSE_PROCESSES
+                self.worker_lock.release()
                 for worker in worker_stubs:
                     worker.RunTraversals(IntMessage(value=player))
                 self.worker_traversals_ready.wait(timeout=None)
@@ -52,59 +55,29 @@ class Master(MasterServicer):
             strategy_stub.TrainStrategy(Empty())
 
             response = strategy_stub.AvailableStrategies(Empty())
-            n_strategies = response.value + 1
-
-            for player in range(N_PLAYERS):
-                actor_stub = ActorStub(actor_channels[PLAYER_ACTOR_HOST_MAP[player]])
-                if player == 0:
-                    actor_stub.SetStrategy(Selection(player=player, strategy_version=n_strategies-1))
-                else:
-                    actor_stub.SetStrategy(Selection(player=player, strategy_version=n_strategies-2))
-
-            self.training_lock.acquire()
-            self.traversal_completed = False
-            self.training_lock.release()
-            for worker in worker_stubs:
-                worker.RunEvaluations(Empty())
-            self.worker_evaluations_ready.wait(timeout=None)
-
+            n_strategies = response.value
+            for player in range(1, N_PLAYERS):
+                actor_stub = ActorStub(actor_channels[PLAYER_ACTOR_HOST_MAP[0]])
+                actor_stub.SetStrategy(Selection(player=0, strategy_version=n_strategies))
+            avg_exploitability = run_evaluations(NUM_EVAL_LOOPS)
+            logging.info("Average exploitability: %f" % avg_exploitability)
             end = time.time()
             logging.info("One iteration took %fs" % (end - start))
 
-    def CompleteTraversal(self, request, context):
-        self.traversal_counter_lock.acquire()
-        self.training_lock.acquire()
-        traversals_left = -1
-        if not self.traversal_completed:
-            self.traversals_completed += 1
-            logging.info("Traversals completed: %d/%d" % (self.traversals_completed, K))
-            traversals_left = K - self.traversals_completed
-            if not traversals_left > 0:
-                self.traversal_completed = True
-                self.traversals_completed = 0
-                self.worker_traversals_ready.set()
-        self.training_lock.release()
-        self.traversal_counter_lock.release()
-        return IntMessage(value=traversals_left)
+    def RequestTraversal(self, request, context):
+        self.traversal_lock.acquire()
+        retval = -1
+        if self.traversals_left > 0:
+            self.traversals_left -= 1
+            logging.info("%d traversal jobs remaining" % self.traversals_left)
+            retval = self.traversals_left
+        self.traversal_lock.release()
+        return IntMessage(value=retval)
 
-    def CompleteEvaluation(self, request, context):
-        self.evaluation_counter_lock.acquire()
-        self.evaluation_lock.acquire()
-        evaluations_left = -1
-        if not self.eval_completed:
-            self.evaluation_reward += request.value1
-            self.evaluations_completed += request.value2
-            if self.evaluations_completed % 100 == 0:
-                logging.info("Evaluations completed: %d/%d, current winnings bb/100: %f" % (self.evaluations_completed, N_EVAL_HANDS,
-                                                                                            self.evaluation_reward/(100*self.evaluations_completed)))
-            evaluations_left = N_EVAL_HANDS - self.evaluations_completed
-            if not evaluations_left > 0:
-                logging.info("Final evaluation winnings bb/100: %f (sample size: %d)" % (self.evaluation_reward/(100*self.evaluations_completed),
-                                                                                         self.evaluations_completed))
-                self.eval_completed = True
-                self.evaluation_reward = 0
-                self.evaluations_completed = 0
-                self.worker_evaluations_ready.set()
-        self.evaluation_lock.release()
-        self.evaluation_counter_lock.release()
-        return IntMessage(value=evaluations_left)
+    def ExitWorkerPool(self, request, context):
+        self.worker_lock.acquire()
+        self.workers_remaining -= 1
+        if self.workers_remaining == 0:
+            self.worker_traversals_ready.set()
+        self.worker_lock.release()
+        return Empty()

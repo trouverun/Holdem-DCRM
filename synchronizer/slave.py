@@ -2,8 +2,8 @@ import logging
 from multiprocessing import Process, Queue
 from rpc.RL_pb2 import Empty
 from rpc.RL_pb2_grpc import SlaveServicer
-from config import N_PLAYERS, N_QUE_PROCESS, N_CONC_TRAVERSALS_PER_PROCESS, N_TRAVERSE_PROCESSES, EVAL_ENVS_PER_PROCESS, CLIENT_SAMPLES_MIN_BATCH_SIZE
-from client.client import clear_queue_process, traverse_process, eval_process
+from config import N_PLAYERS, N_QUE_PROCESS, N_CONC_TRAVERSALS_PER_PROCESS, N_TRAVERSE_PROCESSES, CLIENT_SAMPLES_MIN_BATCH_SIZE
+from client.client import clear_queue_process, traverse_process
 from threading import Thread
 
 
@@ -11,38 +11,13 @@ class Slave(SlaveServicer):
     def __init__(self):
         self.identifier = None
         self.traverser_que = Queue()
-        self.evaluation_que = Queue()
         self.que_processes = []
-        self.traverse_processes = []
-        Process(target=self._background_process, args=()).start()
+        Process(target=self._traverse_background_thread, args=()).start()
 
     def cleanup(self):
         for p in self.que_processes:
             p.terminate()
-        for p in self.traverse_processes:
-            p.terminate()
         logging.info("slave cleanup done")
-
-    def _background_process(self):
-        Thread(target=self._evaluate_background_thread, args=()).start()
-        Thread(target=self._traverse_background_thread, args=()).start()
-
-    def _evaluate_background_thread(self):
-        while True:
-            _ = self.evaluation_que.get()
-            process_count = 0
-            traverse_processes = [
-                Process(target=eval_process, args=(EVAL_ENVS_PER_PROCESS,))
-                for n in range(N_TRAVERSE_PROCESSES)
-            ]
-            for p in traverse_processes:
-                process_count += 1
-                logging.info("starting traversal process %d" % process_count)
-                p.start()
-            for p in traverse_processes:
-                p.join()
-                process_count -= 1
-                logging.info("joined traversal process %d" % process_count)
 
     def _traverse_background_thread(self):
         regret_ques = [Queue(maxsize=5*CLIENT_SAMPLES_MIN_BATCH_SIZE) for _ in range(N_PLAYERS)]
@@ -72,8 +47,4 @@ class Slave(SlaveServicer):
 
     def RunTraversals(self, request, context):
         self.traverser_que.put(request.value)
-        return Empty()
-
-    def RunEvaluations(self, request, context):
-        self.evaluation_que.put(None)
         return Empty()

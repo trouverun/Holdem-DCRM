@@ -7,17 +7,15 @@ from rpc.RL_pb2 import Observation, SampledData, Empty
 from client.batchedtraversal import BatchedTraversal
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
-from pokerenv.table import Table
-from client.batchedenv import BatchedEnvironment
 from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_MIN_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS, HH_LOCATION, PLAYER_ACTOR_HOST_MAP, \
     PLAYER_REGRET_HOST_MAP, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP, GLOBAL_STRATEGY_HOST, MASTER_HOST
 
 
-def clear_queue_thread(player, channel, type, que):
+def clear_queue_thread(player, channel, que_type, que):
     logging.info("Started regret/strategy queue clearing thread for player %d" % player)
-    if type == 'regret':
+    if que_type == 'regret':
         stub = RegretLearnerStub(channel)
-    elif type == 'strategy':
+    elif que_type == 'strategy':
         stub = StrategyLearnerStub(channel)
     else:
         raise ValueError("Invalid type for queue stub")
@@ -38,9 +36,9 @@ def clear_queue_thread(player, channel, type, que):
             bet_bytes = np.asarray(bets).tobytes()
             sampled_proto = SampledData(player=player, observations=observations_bytes, observation_counts=player_obs_count_bytes,
                                         action_data=action_bytes, bet_data=bet_bytes, shape=len(observations), sequence_length=SEQUENCE_LENGTH)
-            if type == "regret":
+            if que_type == "regret":
                 _ = stub.AddRegrets(sampled_proto)
-            elif type == "strategy":
+            elif que_type == "strategy":
                 _ = stub.AddStrategies(sampled_proto)
             observations = []
             counts = []
@@ -52,14 +50,14 @@ def clear_queue_thread(player, channel, type, que):
 def clear_queue_process(regret_ques, strategy_ques):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
     regret_channels = {host: grpc.insecure_channel(host, options) for host in REGRET_HOST_PLAYER_MAP.keys()}
-    strategy_channel = grpc.insecure_channel(GLOBAL_STRATEGY_HOST)
+    strategy_channel = grpc.insecure_channel(GLOBAL_STRATEGY_HOST, options)
     for player in range(N_PLAYERS):
         Thread(target=clear_queue_thread, args=(player, regret_channels[PLAYER_REGRET_HOST_MAP[player]], "regret", regret_ques[player])).start()
         Thread(target=clear_queue_thread, args=(player, strategy_channel, "strategy", strategy_ques[player])).start()
 
 
 def send_player_inference_batch(args):
-    channel, player, observations, observation_counts, type = args
+    channel, player, observations, observation_counts, inference_type = args
     n_items = len(observations)
     if n_items > 0:
         stub = ActorStub(channel)
@@ -67,9 +65,9 @@ def send_player_inference_batch(args):
         player_obs_count_bytes = np.ndarray.tobytes(np.expand_dims(np.asarray(observation_counts, dtype=np.int32), 0))
         obs_proto = Observation(player=player, observations=observations_bytes, observation_counts=player_obs_count_bytes, shape=n_items,
                                 sequence_length=SEQUENCE_LENGTH)
-        if type == 'regret':
+        if inference_type == 'regret':
             response = stub.GetRegrets(obs_proto)
-        elif type == 'strategy':
+        elif inference_type == 'strategy':
             response = stub.GetStrategies(obs_proto)
         else:
             raise ValueError("Invalid value for type of inference")
@@ -87,6 +85,10 @@ def traverse_process(traversals_per_process, traverser, regret_que, strategy_que
     channels = {host: grpc.insecure_channel(host, options) for host in ACTOR_HOST_PLAYER_MAP.keys()}
     bt = BatchedTraversal(traversals_per_process, traverser, regret_que, strategy_que)
     while True:
+        response = master_stub.RequestTraversal(Empty())
+        if response.value == -1:
+            master_stub.ExitWorkerPool(Empty())
+            break
         obs, obs_counts, mapping = bt.reset()
         while True:
             n_items = 0
@@ -105,33 +107,3 @@ def traverse_process(traversals_per_process, traverser, regret_que, strategy_que
                 action_regrets[player] = ar
                 bet_regrets[player] = br
             obs, obs_counts, mapping = bt.step(action_regrets, bet_regrets, mapping)
-        response = master_stub.CompleteTraversal(Empty())
-        if response.value < 0:
-            break
-
-
-def create_env_fn():
-    env = Table(2, hand_history_location=HH_LOCATION)
-    return env
-
-
-def eval_process(envs_per_process):
-    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    master_channel = grpc.insecure_channel(MASTER_HOST, options)
-    master_stub = MasterStub(master_channel)
-    channels = {host: grpc.insecure_channel(host, options) for host in ACTOR_HOST_PLAYER_MAP.keys()}
-    be = BatchedEnvironment(create_env_fn, envs_per_process)
-    obs, obs_counts, mapping = be.reset()
-    while True:
-        with ThreadPoolExecutor(max_workers=N_PLAYERS) as executor:
-            player_channels = [channels[PLAYER_ACTOR_HOST_MAP[player]] for player in range(N_PLAYERS)]
-            arg = list(zip(player_channels * N_PLAYERS, list(range(N_PLAYERS)), obs, obs_counts, ['strategy'] * N_PLAYERS))
-            result = executor.map(send_player_inference_batch, arg)
-        p_actions = [np.empty(0) for _ in range(N_PLAYERS)]
-        p_bets = [np.empty(0) for _ in range(N_PLAYERS)]
-        for player, regrets in enumerate(result):
-            pa, pb = regrets
-            p_actions[player] = pa
-            p_bets[player] = pb
-        obs, obs_counts, mapping, rewards = be.step(p_actions, p_bets, mapping)
-        master_stub.CompleteEvaluation(rewards.sum(), len(rewards))
