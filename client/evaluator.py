@@ -115,7 +115,8 @@ def run_evaluations(n_evaluations):
                 table_action = agents[acting_player].get_action(table, obs, other_observations, other_observation_counts)
                 if n < NUM_EVAL_TRAINING_LOOPS:
                     agents[acting_player].buffer.send_to_server()
-                    value_stub.TrainValues(Empty())
+                    if agents[acting_player].buffer.has_data:
+                        value_stub.TrainValues(Empty())
             obs, reward, env_done, _ = table.step(table_action)
             done = env_done or ((obs[indices.HAND_IS_OVER] or action_dont_care) and acting_player == 0)
             if done:
@@ -125,11 +126,12 @@ def run_evaluations(n_evaluations):
                 for key, agent in agents.items():
                     agent.reset()
                 break
-    return sum(rewards) / (100*hands)
+    return 100 * sum(rewards) / hands
 
 
 class MemoryBuffer:
     def __init__(self, channel):
+        self.has_data = False
         self.evaluator_stub = EvaluatorStub(channel)
         self.observations = []
         self.obs_count = []
@@ -138,6 +140,7 @@ class MemoryBuffer:
         self.b_p = []
 
     def add_experience(self, obs, obs_count, reward, a_p, b_p):
+        self.has_data = True
         self.observations.extend(obs)
         self.obs_count.extend(obs_count)
         self.reward.extend(reward)
@@ -154,7 +157,8 @@ class MemoryBuffer:
         obs_proto = SampledEvalData(player=0, observations=observations_bytes, observation_counts=player_obs_count_bytes,
                                 action_prior=action_prior_bytes, bet_prior=bet_prior_bytes, values=value_bytes,
                                 shape=shape, sequence_length=SEQUENCE_LENGTH)
-        response = self.evaluator_stub.AddValues(obs_proto)
+        _ = self.evaluator_stub.AddValues(obs_proto)
+        self.has_data = False
         self.observations = []
         self.obs_count = []
         self.reward = []

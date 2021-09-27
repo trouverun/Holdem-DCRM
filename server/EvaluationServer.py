@@ -31,7 +31,10 @@ class EvaluationServer(RL_pb2_grpc.EvaluatorServicer):
         Thread(target=self._process_value_p_batch_thread, args=()).start()
 
         self.gpu_lock.acquire()
+        #self.value_p_net.to(self.device)
         self._load_initial_states()
+        #self.value_p_net.to('cpu')
+        torch.cuda.empty_cache()
         self.gpu_lock.release()
         ready.set()
 
@@ -66,9 +69,9 @@ class EvaluationServer(RL_pb2_grpc.EvaluatorServicer):
                                                                 base_path + 'value_p_obs_count.npy', base_path + 'value_pt_actions.npy',
                                                                 base_path + 'value_p_bets.npy', value_loc=base_path + 'value_p_values.npy')
         if success:
-            logging.info('Succesfully recovered value_p reservoir for player %d')
+            logging.info('Succesfully recovered value_p reservoir')
         else:
-            logging.info('Failed to recover value_p reservoir for player %d')
+            logging.info('Failed to recover value_p reservoir')
 
     def _process_value_p_batch_thread(self):
         logging.info("Started value_p inference data processing thread")
@@ -86,14 +89,18 @@ class EvaluationServer(RL_pb2_grpc.EvaluatorServicer):
             logging.debug("Processing value_p batch size of: %d" % this_batch_size)
             observations, counts = self.value_p_batch_que.get()
             self.gpu_lock.acquire()
+            #self.value_p_net.to(self.device)
             observations = torch.from_numpy(observations[:this_batch_size]).type(torch.FloatTensor).to(self.device)
             counts = torch.from_numpy(counts[:this_batch_size]).type(torch.LongTensor)
             self.value_p_net.load_state_dict(torch.load('states/value_p/value_p_net'))
-            action_predictions, bet_predictions, value_predictions = self.value_p_net(observations, counts)
-            self.gpu_lock.release()
+            with torch.no_grad():
+                action_predictions, bet_predictions, value_predictions = self.value_p_net(observations, counts)
             self.value_p_lock.acquire()
             self.value_p_batch_managers.add_batch_results(current_batch, action_predictions.detach().cpu().numpy(), bet_predictions.detach().cpu().numpy(), value_predictions.detach().cpu().numpy())
             self.value_p_lock.release()
+            #self.value_p_net.to('cpu')
+            torch.cuda.empty_cache()
+            self.gpu_lock.release()
             current_batch += 1
 
     def _add_value_p_observations_to_batch(self, player, observations, counts):
@@ -148,6 +155,7 @@ class EvaluationServer(RL_pb2_grpc.EvaluatorServicer):
         train_indices = np.random.choice(all_indices, int(0.8 * n_samples), replace=False)
         validation_indices = np.setdiff1d(all_indices, train_indices)
         self.gpu_lock.acquire()
+        #self.value_p_net.to(self.device)
         self.value_p_net.load_state_dict(torch.load('states/value_p/value_p_net_initial'))
         optimizer = self.value_p_optimizer_fn(self.value_p_net.parameters(), lr=VALUE_P_LEARNING_RATE, weight_decay=VALUE_P_WEIGHT_DECAY)
         scheduler = self.value_p_scheduler_fn(optimizer=optimizer, max_lr=VALUE_P_LEARNING_RATE, total_steps=None,
@@ -164,6 +172,8 @@ class EvaluationServer(RL_pb2_grpc.EvaluatorServicer):
         self._training_loop(self.value_p_net, optimizer, obs, obs_count, values, actions, bets, train_indices, validation_indices,
                             scheduler, 'iter')
         torch.save(self.value_p_net.state_dict(), 'states/value_p/value_p_net')
+        #self.value_p_net.to('cpu')
+        torch.cuda.empty_cache()
         self.gpu_lock.release()
         base_path = 'reservoirs/value_p/'
         self.value_p_reservoir.save_to_disk(

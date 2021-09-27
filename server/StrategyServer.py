@@ -13,7 +13,7 @@ from config import LINEAR_CFR, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MA
 class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
     def __init__(self, gpu_lock, ready):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        logging.info('Regret learner using device %s' % self.device)
+        logging.info('Strategy learner using device %s' % self.device)
         super(StrategyLearner, self).__init__(self.device)
         self.strategy_lock = Lock()
         self.strategy_reservoir = Reservoir(save_weights=LINEAR_CFR)
@@ -81,6 +81,7 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         train_indices = np.random.choice(all_indices, int(0.8 * n_samples), replace=False)
         validation_indices = np.setdiff1d(all_indices, train_indices)
         self.gpu_lock.acquire()
+        #self.strategy_net.to(self.device)
         self.strategy_net.load_state_dict(torch.load('states/strategy/strategy_net_%d' % self.strategy_iterations))
         optimizer = self.strategy_optimizer_fn(self.strategy_net.parameters(), lr=STRATEGY_LEARNING_RATE, weight_decay=STRATEGY_WEIGHT_DECAY)
         scheduler = self.strategy_scheduler_fn(optimizer=optimizer, max_lr=STRATEGY_LEARNING_RATE, total_steps=None,
@@ -101,6 +102,8 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
                             validation_indices, scheduler, 'iter', iteration, weights)
         self.strategy_iterations += 1
         torch.save(self.strategy_net.state_dict(), 'states/strategy/strategy_net_%d' % self.strategy_iterations)
+        #self.strategy_net.to('cpu')
+        torch.cuda.empty_cache()
         self.gpu_lock.release()
         base_path = 'reservoirs/'
         self.strategy_reservoir.save_to_disk(base_path + 'sample_count.npy', base_path + 'obs.npy', base_path + 'obs_count.npy',

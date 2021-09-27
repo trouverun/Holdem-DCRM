@@ -46,15 +46,19 @@ class Actor(RL_pb2_grpc.ActorServicer):
             logging.debug("Processing regret batch size of: %d, for player: %d" % (this_batch_size, player))
             observations, counts = self.regret_batch_que[player].get()
             self.gpu_lock.acquire()
+            #self.regret_net.to(self.device)
             observations = torch.from_numpy(observations[:this_batch_size]).type(torch.FloatTensor).to(self.device)
             counts = torch.from_numpy(counts[:this_batch_size]).type(torch.LongTensor)
             self.regret_net.load_state_dict(torch.load('states/regret/regret_net_player_%d' % player))
-            action_predictions, bet_predictions = self.regret_net(observations, counts)
-            self.gpu_lock.release()
+            with torch.no_grad():
+                action_predictions, bet_predictions = self.regret_net(observations, counts)
             self.player_regret_locks[player].acquire()
             self.regret_batch_managers[player].add_batch_results(current_batch,
                                                                  action_predictions.detach().cpu().numpy(), bet_predictions.detach().cpu().numpy())
             self.player_regret_locks[player].release()
+            #self.regret_net.to('cpu')
+            torch.cuda.empty_cache()
+            self.gpu_lock.release()
             current_batch += 1
 
     def _process_strategy_batch_thread(self, player):
@@ -73,14 +77,18 @@ class Actor(RL_pb2_grpc.ActorServicer):
             logging.debug("Processing strategy batch size of: %d, for player: %d" % (this_batch_size, player))
             observations, counts = self.strategy_batch_que[player].get()
             self.gpu_lock.acquire()
+            #self.strategy_net.to(self.device)
             observations = torch.from_numpy(observations[:this_batch_size]).type(torch.FloatTensor).to(self.device)
             counts = torch.from_numpy(counts[:this_batch_size]).type(torch.LongTensor)
             self.strategy_net.load_state_dict(torch.load('states/strategy/strategy_net_%d' % self.strategy_versions[player]))
-            action_predictions, bet_predictions = self.strategy_net(observations, counts)
-            self.gpu_lock.release()
+            with torch.no_grad():
+                action_predictions, bet_predictions = self.strategy_net(observations, counts)
             self.player_strategy_locks[player].acquire()
             self.strategy_batch_managers[player].add_batch_results(current_batch, action_predictions.detach().cpu().numpy(), bet_predictions.detach().cpu().numpy())
             self.player_strategy_locks[player].release()
+            #self.strategy_net.to('cpu')
+            torch.cuda.empty_cache()
+            self.gpu_lock.release()
             current_batch += 1
 
     def _add_regret_observations_to_batch(self, player, observations, counts):

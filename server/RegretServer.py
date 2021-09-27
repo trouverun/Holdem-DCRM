@@ -27,7 +27,10 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         self.regret_loss = torch.nn.MSELoss()
 
         self.gpu_lock.acquire()
+        #self.regret_net.to(self.device)
         self._load_initial_states(player_list)
+        #self.regret_net.to('cpu')
+        torch.cuda.empty_cache()
         self.gpu_lock.release()
         ready.set()
 
@@ -98,6 +101,7 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         train_indices = np.random.choice(all_indices, int(0.8*n_samples), replace=False)
         validation_indices = np.setdiff1d(all_indices, train_indices)
         self.gpu_lock.acquire()
+        #self.regret_net.to(self.device)
         self.regret_net.load_state_dict(torch.load('states/regret/regret_net_initial'))
         optimizer = self.regret_optimizer_fn(self.regret_net.parameters(), lr=REGRET_LEARNING_RATE, weight_decay=REGRET_WEIGHT_DECAY)
         scheduler = self.regret_scheduler_fn(optimizer=optimizer, max_lr=REGRET_LEARNING_RATE, total_steps=None,
@@ -119,6 +123,8 @@ class RegretLearner(RL_pb2_grpc.RegretLearnerServicer, Learner):
         self.regret_iterations[player] += 1
         np.save('states/regret/regret_iterations.npy', self.regret_iterations)
         torch.save(self.regret_net.state_dict(), 'states/regret/regret_net_player_%d' % player)
+        #self.regret_net.to('cpu')
+        torch.cuda.empty_cache()
         self.gpu_lock.release()
         base_path = 'reservoirs/player_%d/' % player
         weight_loc = None

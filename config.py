@@ -23,7 +23,7 @@ PLAYER_REGRET_HOST_MAP = {k: new_values for new_values, new_keys in zip(REGRET_H
 
 # -------------------------------------- GENERAL ---------------------------------------
 N_ITERATIONS = 25
-K = 500
+K = 50
 
 
 # -------------------------------- LEARNING ENVIRONMENT --------------------------------
@@ -66,7 +66,7 @@ LINEAR_CFR = True
 SINGLE_NETWORK = False
 RESERVOIR_SIZE = int(5e6)                                        # How many samples are stored in each reservoir
 DATA_PROCESS_TIMEOUT = 0.005                                     # Timeout duration before a batch is processed even if it is not full
-MAX_INFERENCE_BATCH_SIZE = 1024*5                               # Batch size for inferring regrets or strategies
+MAX_INFERENCE_BATCH_SIZE = 256                               # Batch size for inferring regrets or strategies
 MAX_TRAIN_BATCH_SIZE = 1024*5                                   # Batch size when training networks
 
 
@@ -80,6 +80,6 @@ STRATEGY_WEIGHT_DECAY = 0.001
 N_VALUE_P_EPOCHS = 150
 VALUE_P_LEARNING_RATE = 0.01
 VALUE_P_WEIGHT_DECAY = 0.001
-PATIENCE = 25
+PATIENCE = 10
 improvement_eps = 1.05
 
