@@ -7,8 +7,17 @@ from rpc.RL_pb2 import Observation, SampledData, Empty
 from client.batchedtraversal import BatchedTraversal
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
-from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_MIN_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS, HH_LOCATION, PLAYER_ACTOR_HOST_MAP, \
+from config import N_PLAYERS, N_BET_BUCKETS, CLIENT_SAMPLES_MIN_BATCH_SIZE, SEQUENCE_LENGTH, N_ACTIONS, PLAYER_ACTOR_HOST_MAP, \
     PLAYER_REGRET_HOST_MAP, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP, GLOBAL_STRATEGY_HOST, MASTER_HOST
+
+
+def clear_traverse_queue_process(regret_ques, strategy_ques):
+    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
+    regret_channels = {host: grpc.insecure_channel(host, options) for host in REGRET_HOST_PLAYER_MAP.keys()}
+    strategy_channel = grpc.insecure_channel(GLOBAL_STRATEGY_HOST, options)
+    for player in range(N_PLAYERS):
+        Thread(target=clear_queue_thread, args=(player, regret_channels[PLAYER_REGRET_HOST_MAP[player]], "regret", regret_ques[player])).start()
+        Thread(target=clear_queue_thread, args=(player, strategy_channel, "strategy", strategy_ques[player])).start()
 
 
 def clear_queue_thread(player, channel, que_type, que):
@@ -30,10 +39,10 @@ def clear_queue_thread(player, channel, que_type, que):
         actions.extend(action)
         bets.extend(bet)
         if len(observations) >= CLIENT_SAMPLES_MIN_BATCH_SIZE:
-            observations_bytes = np.asarray(observations).tobytes()
+            observations_bytes = np.asarray(observations, dtype=np.float32).tobytes()
             player_obs_count_bytes = np.asarray(counts, dtype=np.int32).tobytes()
-            action_bytes = np.asarray(actions).tobytes()
-            bet_bytes = np.asarray(bets).tobytes()
+            action_bytes = np.asarray(actions, dtype=np.float32).tobytes()
+            bet_bytes = np.asarray(bets, dtype=np.float32).tobytes()
             sampled_proto = SampledData(player=player, observations=observations_bytes, observation_counts=player_obs_count_bytes,
                                         action_data=action_bytes, bet_data=bet_bytes, shape=len(observations), sequence_length=SEQUENCE_LENGTH)
             if que_type == "regret":
@@ -47,24 +56,16 @@ def clear_queue_thread(player, channel, que_type, que):
             gc.collect()
 
 
-def clear_queue_process(regret_ques, strategy_ques):
-    options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
-    regret_channels = {host: grpc.insecure_channel(host, options) for host in REGRET_HOST_PLAYER_MAP.keys()}
-    strategy_channel = grpc.insecure_channel(GLOBAL_STRATEGY_HOST, options)
-    for player in range(N_PLAYERS):
-        Thread(target=clear_queue_thread, args=(player, regret_channels[PLAYER_REGRET_HOST_MAP[player]], "regret", regret_ques[player])).start()
-        Thread(target=clear_queue_thread, args=(player, strategy_channel, "strategy", strategy_ques[player])).start()
-
-
 def send_player_inference_batch(args):
     channel, player, observations, observation_counts, inference_type = args
     n_items = len(observations)
     if n_items > 0:
         stub = ActorStub(channel)
-        observations_bytes = np.ndarray.tobytes(np.asarray(observations))
+        observations_bytes = np.ndarray.tobytes(np.asarray(observations, dtype=np.float32))
         player_obs_count_bytes = np.ndarray.tobytes(np.expand_dims(np.asarray(observation_counts, dtype=np.int32), 0))
         obs_proto = Observation(player=player, observations=observations_bytes, observation_counts=player_obs_count_bytes, shape=n_items,
                                 sequence_length=SEQUENCE_LENGTH)
+
         if inference_type == 'regret':
             response = stub.GetRegrets(obs_proto)
         elif inference_type == 'strategy':
@@ -87,7 +88,7 @@ def traverse_process(traversals_per_process, traverser, regret_que, strategy_que
     while True:
         response = master_stub.RequestTraversal(Empty())
         if response.value == -1:
-            master_stub.ExitWorkerPool(Empty())
+            master_stub.ExitTraversalPool(Empty())
             break
         obs, obs_counts, mapping = bt.reset()
         while True:

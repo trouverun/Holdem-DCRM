@@ -377,7 +377,163 @@ class StrategyLearner(object):
             call_credentials, compression, wait_for_ready, timeout, metadata)
 
 
-class EvaluatorStub(object):
+class EvalPPOStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.GetStrategies = channel.unary_unary(
+                '/EvalPPO/GetStrategies',
+                request_serializer=rpc_dot_RL__pb2.Observation.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Prediction.FromString,
+                )
+        self.AddExperience = channel.unary_unary(
+                '/EvalPPO/AddExperience',
+                request_serializer=rpc_dot_RL__pb2.SampledTrajectory.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.TrajectoriesLeft = channel.unary_unary(
+                '/EvalPPO/TrajectoriesLeft',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                )
+        self.ResetBestResponse = channel.unary_unary(
+                '/EvalPPO/ResetBestResponse',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+
+
+class EvalPPOServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def GetStrategies(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddExperience(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TrajectoriesLeft(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ResetBestResponse(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_EvalPPOServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'GetStrategies': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetStrategies,
+                    request_deserializer=rpc_dot_RL__pb2.Observation.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Prediction.SerializeToString,
+            ),
+            'AddExperience': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddExperience,
+                    request_deserializer=rpc_dot_RL__pb2.SampledTrajectory.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'TrajectoriesLeft': grpc.unary_unary_rpc_method_handler(
+                    servicer.TrajectoriesLeft,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            ),
+            'ResetBestResponse': grpc.unary_unary_rpc_method_handler(
+                    servicer.ResetBestResponse,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'EvalPPO', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+
+
+ # This class is part of an EXPERIMENTAL API.
+class EvalPPO(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def GetStrategies(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/EvalPPO/GetStrategies',
+            rpc_dot_RL__pb2.Observation.SerializeToString,
+            rpc_dot_RL__pb2.Prediction.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AddExperience(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/EvalPPO/AddExperience',
+            rpc_dot_RL__pb2.SampledTrajectory.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TrajectoriesLeft(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/EvalPPO/TrajectoriesLeft',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ResetBestResponse(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/EvalPPO/ResetBestResponse',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+
+class EvalMCTSStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -387,23 +543,23 @@ class EvaluatorStub(object):
             channel: A grpc.Channel.
         """
         self.GetValues = channel.unary_unary(
-                '/Evaluator/GetValues',
+                '/EvalMCTS/GetValues',
                 request_serializer=rpc_dot_RL__pb2.Observation.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.EvalPrediction.FromString,
                 )
         self.AddValues = channel.unary_unary(
-                '/Evaluator/AddValues',
+                '/EvalMCTS/AddValues',
                 request_serializer=rpc_dot_RL__pb2.SampledEvalData.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
         self.TrainValues = channel.unary_unary(
-                '/Evaluator/TrainValues',
+                '/EvalMCTS/TrainValues',
                 request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
 
 
-class EvaluatorServicer(object):
+class EvalMCTSServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetValues(self, request, context):
@@ -425,7 +581,7 @@ class EvaluatorServicer(object):
         raise NotImplementedError('Method not implemented!')
 
 
-def add_EvaluatorServicer_to_server(servicer, server):
+def add_EvalMCTSServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'GetValues': grpc.unary_unary_rpc_method_handler(
                     servicer.GetValues,
@@ -444,12 +600,12 @@ def add_EvaluatorServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'Evaluator', rpc_method_handlers)
+            'EvalMCTS', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
 
 
  # This class is part of an EXPERIMENTAL API.
-class Evaluator(object):
+class EvalMCTS(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -462,7 +618,7 @@ class Evaluator(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Evaluator/GetValues',
+        return grpc.experimental.unary_unary(request, target, '/EvalMCTS/GetValues',
             rpc_dot_RL__pb2.Observation.SerializeToString,
             rpc_dot_RL__pb2.EvalPrediction.FromString,
             options, channel_credentials,
@@ -478,7 +634,7 @@ class Evaluator(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Evaluator/AddValues',
+        return grpc.experimental.unary_unary(request, target, '/EvalMCTS/AddValues',
             rpc_dot_RL__pb2.SampledEvalData.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
@@ -494,7 +650,7 @@ class Evaluator(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Evaluator/TrainValues',
+        return grpc.experimental.unary_unary(request, target, '/EvalMCTS/TrainValues',
             rpc_dot_RL__pb2.Empty.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
@@ -515,9 +671,64 @@ class MasterStub(object):
                 request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
                 )
-        self.ExitWorkerPool = channel.unary_unary(
-                '/Master/ExitWorkerPool',
+        self.ExitTraversalPool = channel.unary_unary(
+                '/Master/ExitTraversalPool',
                 request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.GetPPOTableInstance = channel.unary_unary(
+                '/Master/GetPPOTableInstance',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.TableMessage.FromString,
+                )
+        self.GetPPOCurrentIteration = channel.unary_unary(
+                '/Master/GetPPOCurrentIteration',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                )
+        self.GetPPOTrainingWorkersLeft = channel.unary_unary(
+                '/Master/GetPPOTrainingWorkersLeft',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                )
+        self.RequestPPOTrainingHands = channel.unary_unary(
+                '/Master/RequestPPOTrainingHands',
+                request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                )
+        self.RequestPPOEvalHands = channel.unary_unary(
+                '/Master/RequestPPOEvalHands',
+                request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                )
+        self.AddPPOEvalRewards = channel.unary_unary(
+                '/Master/AddPPOEvalRewards',
+                request_serializer=rpc_dot_RL__pb2.SampledRewards.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.ExitPPOTrainingPool = channel.unary_unary(
+                '/Master/ExitPPOTrainingPool',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.ExitPPOEvaluationPool = channel.unary_unary(
+                '/Master/ExitPPOEvaluationPool',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.RequestMCTSEvaluation = channel.unary_unary(
+                '/Master/RequestMCTSEvaluation',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                )
+        self.ExitMCTSEvaluationPool = channel.unary_unary(
+                '/Master/ExitMCTSEvaluationPool',
+                request_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
+        self.AddMCTSExploitabilitySample = channel.unary_unary(
+                '/Master/AddMCTSExploitabilitySample',
+                request_serializer=rpc_dot_RL__pb2.FloatMessage.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
 
@@ -531,7 +742,75 @@ class MasterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def ExitWorkerPool(self, request, context):
+    def ExitTraversalPool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetPPOTableInstance(self, request, context):
+        """PPO Eval
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetPPOCurrentIteration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetPPOTrainingWorkersLeft(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RequestPPOTrainingHands(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RequestPPOEvalHands(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddPPOEvalRewards(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExitPPOTrainingPool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExitPPOEvaluationPool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RequestMCTSEvaluation(self, request, context):
+        """MCTS Eval
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExitMCTSEvaluationPool(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def AddMCTSExploitabilitySample(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -545,9 +824,64 @@ def add_MasterServicer_to_server(servicer, server):
                     request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                     response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
             ),
-            'ExitWorkerPool': grpc.unary_unary_rpc_method_handler(
-                    servicer.ExitWorkerPool,
+            'ExitTraversalPool': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExitTraversalPool,
                     request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'GetPPOTableInstance': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPPOTableInstance,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.TableMessage.SerializeToString,
+            ),
+            'GetPPOCurrentIteration': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPPOCurrentIteration,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            ),
+            'GetPPOTrainingWorkersLeft': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetPPOTrainingWorkersLeft,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            ),
+            'RequestPPOTrainingHands': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestPPOTrainingHands,
+                    request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            ),
+            'RequestPPOEvalHands': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestPPOEvalHands,
+                    request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            ),
+            'AddPPOEvalRewards': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddPPOEvalRewards,
+                    request_deserializer=rpc_dot_RL__pb2.SampledRewards.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'ExitPPOTrainingPool': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExitPPOTrainingPool,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'ExitPPOEvaluationPool': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExitPPOEvaluationPool,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'RequestMCTSEvaluation': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestMCTSEvaluation,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            ),
+            'ExitMCTSEvaluationPool': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExitMCTSEvaluationPool,
+                    request_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'AddMCTSExploitabilitySample': grpc.unary_unary_rpc_method_handler(
+                    servicer.AddMCTSExploitabilitySample,
+                    request_deserializer=rpc_dot_RL__pb2.FloatMessage.FromString,
                     response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
             ),
     }
@@ -577,7 +911,7 @@ class Master(object):
             call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def ExitWorkerPool(request,
+    def ExitTraversalPool(request,
             target,
             options=(),
             channel_credentials=None,
@@ -586,8 +920,184 @@ class Master(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/Master/ExitWorkerPool',
+        return grpc.experimental.unary_unary(request, target, '/Master/ExitTraversalPool',
             rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetPPOTableInstance(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/GetPPOTableInstance',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.TableMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetPPOCurrentIteration(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/GetPPOCurrentIteration',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetPPOTrainingWorkersLeft(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/GetPPOTrainingWorkersLeft',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RequestPPOTrainingHands(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/RequestPPOTrainingHands',
+            rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RequestPPOEvalHands(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/RequestPPOEvalHands',
+            rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AddPPOEvalRewards(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/AddPPOEvalRewards',
+            rpc_dot_RL__pb2.SampledRewards.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExitPPOTrainingPool(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/ExitPPOTrainingPool',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExitPPOEvaluationPool(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/ExitPPOEvaluationPool',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RequestMCTSEvaluation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/RequestMCTSEvaluation',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.IntMessage.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExitMCTSEvaluationPool(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/ExitMCTSEvaluationPool',
+            rpc_dot_RL__pb2.Empty.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def AddMCTSExploitabilitySample(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Master/AddMCTSExploitabilitySample',
+            rpc_dot_RL__pb2.FloatMessage.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,
             call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -612,6 +1122,11 @@ class SlaveStub(object):
                 request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
                 response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
                 )
+        self.RunEvaluations = channel.unary_unary(
+                '/Slave/RunEvaluations',
+                request_serializer=rpc_dot_RL__pb2.IntMessage.SerializeToString,
+                response_deserializer=rpc_dot_RL__pb2.Empty.FromString,
+                )
 
 
 class SlaveServicer(object):
@@ -629,6 +1144,12 @@ class SlaveServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def RunEvaluations(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_SlaveServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -639,6 +1160,11 @@ def add_SlaveServicer_to_server(servicer, server):
             ),
             'RunTraversals': grpc.unary_unary_rpc_method_handler(
                     servicer.RunTraversals,
+                    request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
+                    response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
+            ),
+            'RunEvaluations': grpc.unary_unary_rpc_method_handler(
+                    servicer.RunEvaluations,
                     request_deserializer=rpc_dot_RL__pb2.IntMessage.FromString,
                     response_serializer=rpc_dot_RL__pb2.Empty.SerializeToString,
             ),
@@ -679,6 +1205,22 @@ class Slave(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/Slave/RunTraversals',
+            rpc_dot_RL__pb2.IntMessage.SerializeToString,
+            rpc_dot_RL__pb2.Empty.FromString,
+            options, channel_credentials,
+            call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def RunEvaluations(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/Slave/RunEvaluations',
             rpc_dot_RL__pb2.IntMessage.SerializeToString,
             rpc_dot_RL__pb2.Empty.FromString,
             options, channel_credentials,

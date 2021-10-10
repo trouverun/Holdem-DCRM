@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
         server = grpc.server(ThreadPoolExecutor(max_workers=2), options=options)
         slave_instance = Slave()
-        atexit.register(slave_instance.cleanup)
+        # atexit.register(slave_instance.cleanup)
         RL_pb2_grpc.add_SlaveServicer_to_server(slave_instance, server)
         server.add_insecure_port(args.host)
         server.start()

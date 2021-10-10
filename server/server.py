@@ -1,5 +1,3 @@
-import atexit
-
 import grpc
 import os
 import logging
@@ -11,8 +9,10 @@ from multiprocessing import Event
 from server.ActorServer import Actor
 from server.RegretServer import RegretLearner
 from server.StrategyServer import StrategyLearner
-from server.EvaluationServer import EvaluationServer
-from config import N_THREADPOOL_WORKERS, GLOBAL_STRATEGY_HOST, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP, GLOBAL_EVAL_HOST
+from server.eval.ppo.EvalPPOServer import ActorCritic
+from server.eval.mcts.EvalMCTSServer import ValuePServer
+from config import N_THREADPOOL_WORKERS, GLOBAL_STRATEGY_HOST, REGRET_HOST_PLAYER_MAP, ACTOR_HOST_PLAYER_MAP, GLOBAL_EVAL_HOST, \
+    USE_PPO_EVALUATION, STUPID_MCTS
 
 
 def _run_actor_server(bind_address, player_list, gpu_lock):
@@ -28,7 +28,10 @@ def _run_actor_server(bind_address, player_list, gpu_lock):
 def _run_eval_server(bind_address, gpu_lock, ready):
     options = [('grpc.max_send_message_length', -1), ('grpc.max_receive_message_length', -1)]
     server = grpc.server(ThreadPoolExecutor(max_workers=N_THREADPOOL_WORKERS), options=options)
-    RL_pb2_grpc.add_EvaluatorServicer_to_server(EvaluationServer(gpu_lock, ready), server)
+    if USE_PPO_EVALUATION:
+        RL_pb2_grpc.add_EvalPPOServicer_to_server(ActorCritic(gpu_lock, ready), server)
+    else:
+        RL_pb2_grpc.add_EvalMCTSServicer_to_server(ValuePServer(gpu_lock, ready), server)
     server.add_insecure_port(bind_address)
     server.start()
     logging.info("Eval server serving at %s", bind_address)
@@ -82,6 +85,12 @@ class Server:
             os.makedirs('states/regret')
         if 'strategy' not in subdirs:
             os.makedirs('states/strategy')
+        if USE_PPO_EVALUATION:
+            if 'ppo' not in subdirs:
+                os.makedirs('states/ppo')
+        else:
+            if 'value_p' not in subdirs:
+                os.makedirs('states/value_p')
         if 'reservoirs' not in dirs:
             os.makedirs('reservoirs')
 
@@ -101,8 +110,9 @@ class Server:
                 strat_ready = Event()
                 self.strategy_process = multiprocessing.Process(target=_run_strategy_learner_server, args=(host, gpu_lock, strat_ready))
             elif host == GLOBAL_EVAL_HOST:
-                eval_ready = Event()
-                self.eval_process = multiprocessing.Process(target=_run_eval_server, args=(host, gpu_lock, eval_ready))
+                if USE_PPO_EVALUATION or not STUPID_MCTS:
+                    eval_ready = Event()
+                    self.eval_process = multiprocessing.Process(target=_run_eval_server, args=(host, gpu_lock, eval_ready))
             else:
                 raise ValueError("Unrecognized hostname given to serve(), check the config file.")
 

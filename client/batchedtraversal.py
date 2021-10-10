@@ -4,8 +4,8 @@ import numpy as np
 import pokerenv.obs_indices as indices
 from pokerenv.table import Table
 from pokerenv.common import Action, PlayerAction, action_list
-from config import N_PLAYERS, LOW_STACK_BBS, HIGH_STACK_BBS, HH_LOCATION, INVALID_ACTION_PENALTY, OBS_SHAPE, SEQUENCE_LENGTH, \
-    N_BET_BUCKETS, BET_BUCKETS, N_ACTIONS
+from config import N_PLAYERS, LOW_STACK_BBS, HIGH_STACK_BBS, OBS_SHAPE, SEQUENCE_LENGTH, N_BET_BUCKETS, BET_BUCKETS, N_ACTIONS
+from utils import fast_deep_copy
 
 
 class BatchedTraversal:
@@ -39,7 +39,7 @@ class BatchedTraversal:
         mappings = dict()
         # Create root nodes for each traversal
         for _ in range(self.n_traversals):
-            env = Table(N_PLAYERS, LOW_STACK_BBS, HIGH_STACK_BBS, HH_LOCATION, INVALID_ACTION_PENALTY)
+            env = Table(N_PLAYERS, stack_low=LOW_STACK_BBS, stack_high=HIGH_STACK_BBS)
             self.all_nodes[self.node_n] = Node(self.node_n, None, env)
             node = self.all_nodes[self.node_n]
             self.waiting_nodes.add(self.node_n)
@@ -98,7 +98,7 @@ class BatchedTraversal:
     # Creates a single child node for the traverser, and step through it with the specified action/bet
     def _create_child_node(self, parent, action, bet, observations, observation_counts, mappings, prev_obs):
         env = parent.env
-        env_copy = copy.deepcopy(env)
+        env_copy = fast_deep_copy(env)#copy.deepcopy(env)
         self.all_nodes[self.node_n] = Node(self.node_n, parent, env_copy, action, bet)
         node = self.all_nodes[self.node_n]
         obs, obs_count, reward, done = node.step(prev_obs, parent_is_traverser=True)

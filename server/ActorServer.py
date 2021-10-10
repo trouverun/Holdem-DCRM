@@ -6,8 +6,8 @@ from queue import Queue
 from server.util import BatchManager
 from rpc.RL_pb2 import Prediction, Empty
 from threading import Lock, Thread
-from server.networks import RegretNetwork, StrategyNetwork
-from config import N_PLAYERS, MAX_INFERENCE_BATCH_SIZE, OBS_SHAPE, DATA_PROCESS_TIMEOUT
+from server.networks import RegretNetwork, PolicyNetwork
+from config import N_PLAYERS, DCRM_MAX_INFERENCE_BATCH_SIZE, OBS_SHAPE, DCRM_BATCH_PROCESS_TIMEOUT
 
 
 class Actor(RL_pb2_grpc.ActorServicer):
@@ -17,13 +17,13 @@ class Actor(RL_pb2_grpc.ActorServicer):
         self.player_strategy_locks = {player: Lock() for player in player_list}
         self.regret_batch_que = {player: Queue() for player in player_list}
         self.strategy_batch_que = {player: Queue() for player in player_list}
-        self.regret_batch_managers = {player: BatchManager(self.regret_batch_que[player]) for player in player_list}
-        self.strategy_batch_managers = {player: BatchManager(self.strategy_batch_que[player]) for player in player_list}
+        self.regret_batch_managers = {player: BatchManager(DCRM_MAX_INFERENCE_BATCH_SIZE, self.regret_batch_que[player]) for player in player_list}
+        self.strategy_batch_managers = {player: BatchManager(DCRM_MAX_INFERENCE_BATCH_SIZE, self.strategy_batch_que[player]) for player in player_list}
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         logging.info('Pytorch using device %s' % self.device)
         self.regret_net = RegretNetwork(self.device).to(self.device)
-        self.strategy_net = StrategyNetwork(self.device).to(self.device)
+        self.strategy_net = PolicyNetwork(self.device).to(self.device)
         # Which version of the strategy network is used for inference (for each player)
         self.strategy_versions = np.zeros(N_PLAYERS)
         for player in player_list:
@@ -36,11 +36,11 @@ class Actor(RL_pb2_grpc.ActorServicer):
         while True:
             self.regret_batch_managers[player].data_added_events[current_batch].wait(timeout=None)
             # Once any amount of data has been added to the current batch, wait until the batch is full, or until the specified timeout
-            self.regret_batch_managers[player].batch_full_events[current_batch].wait(timeout=DATA_PROCESS_TIMEOUT)
+            self.regret_batch_managers[player].batch_full_events[current_batch].wait(timeout=DCRM_BATCH_PROCESS_TIMEOUT)
             self.player_regret_locks[player].acquire()
             this_batch_size = self.regret_batch_managers[player].current_batch_sizes[current_batch]
             # If we arrived here by timing out above, we need to set the current batch as consumed, so that we no longer add data to it
-            if this_batch_size != MAX_INFERENCE_BATCH_SIZE:
+            if this_batch_size != DCRM_MAX_INFERENCE_BATCH_SIZE:
                 self.regret_batch_managers[player].finalize_batch()
             self.player_regret_locks[player].release()
             logging.debug("Processing regret batch size of: %d, for player: %d" % (this_batch_size, player))
@@ -67,11 +67,11 @@ class Actor(RL_pb2_grpc.ActorServicer):
         while True:
             self.strategy_batch_managers[player].data_added_events[current_batch].wait(timeout=None)
             # Once any amount of data has been added to the current batch, wait until the batch is full, or until the specified timeout
-            self.strategy_batch_managers[player].batch_full_events[current_batch].wait(timeout=DATA_PROCESS_TIMEOUT)
+            self.strategy_batch_managers[player].batch_full_events[current_batch].wait(timeout=DCRM_BATCH_PROCESS_TIMEOUT)
             self.player_strategy_locks[player].acquire()
             this_batch_size = self.strategy_batch_managers[player].current_batch_sizes[current_batch]
             # If we arrived here by timing out above, we need to set the current batch as consumed, so that we no longer add data to it
-            if this_batch_size != MAX_INFERENCE_BATCH_SIZE:
+            if this_batch_size != DCRM_MAX_INFERENCE_BATCH_SIZE:
                 self.strategy_batch_managers[player].finalize_batch()
             self.player_strategy_locks[player].release()
             logging.debug("Processing strategy batch size of: %d, for player: %d" % (this_batch_size, player))

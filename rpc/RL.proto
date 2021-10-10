@@ -27,6 +27,10 @@ message IntMessage {
     int32 value = 1;
 }
 
+message FloatMessage {
+    float value = 1;
+}
+
 message PairMessage {
     int32 value1 = 1;
     int32 value2 = 2;
@@ -65,6 +69,34 @@ message EvalPrediction {
     bytes bet_prior_prediction = 3;
 }
 
+message SampledTrajectory {
+    int32 player = 1;
+    bytes observations = 2;
+    bytes observation_counts = 3;
+    bytes action_log_probs = 4;
+    bytes bet_log_probs = 5;
+    bytes rewards = 6;
+    int32 shape = 7;
+    int32 sequence_length = 8;
+}
+
+message TableMessage {
+    bytes table = 1;
+    bytes initial_obs = 2;
+}
+
+message SampledRewards {
+    int32 n_samples = 1;
+    bytes rewards = 2;
+}
+
+service EvalPPO {
+    rpc GetStrategies(Observation) returns (Prediction);
+    rpc AddExperience(SampledTrajectory) returns (Empty);
+    rpc TrajectoriesLeft(Empty) returns (IntMessage);
+    rpc ResetBestResponse(Empty) returns (Empty);
+}
+
 message SampledEvalData {
     int32 player = 1;
     bytes observations = 2;
@@ -76,19 +108,32 @@ message SampledEvalData {
     int32 sequence_length = 8;
 }
 
-service Evaluator {
+service EvalMCTS {
     rpc GetValues(Observation) returns (EvalPrediction);
     rpc AddValues(SampledEvalData) returns (Empty);
     rpc TrainValues(Empty) returns (Empty);
 }
 
-
 service Master {
     rpc RequestTraversal(Empty) returns (IntMessage);
-    rpc ExitWorkerPool(Empty) returns (Empty);
+    rpc ExitTraversalPool(Empty) returns (Empty);
+    // PPO Eval
+    rpc GetPPOTableInstance(Empty) returns (TableMessage);
+    rpc GetPPOCurrentIteration(Empty) returns (IntMessage);
+    rpc GetPPOTrainingWorkersLeft(Empty) returns (IntMessage);
+    rpc RequestPPOTrainingHands(IntMessage) returns (IntMessage);
+    rpc RequestPPOEvalHands(IntMessage) returns (IntMessage);
+    rpc AddPPOEvalRewards(SampledRewards) returns (Empty);
+    rpc ExitPPOTrainingPool(Empty) returns (Empty);
+    rpc ExitPPOEvaluationPool(Empty) returns (Empty);
+    // MCTS Eval
+    rpc RequestMCTSEvaluation(Empty) returns (IntMessage);
+    rpc ExitMCTSEvaluationPool(Empty) returns (Empty);
+    rpc AddMCTSExploitabilitySample(FloatMessage) returns (Empty);
 }
 
 service Slave {
     rpc SetIdentifier(IntMessage) returns (Empty);
     rpc RunTraversals(IntMessage) returns (Empty);
+    rpc RunEvaluations(IntMessage) returns (Empty);
 }

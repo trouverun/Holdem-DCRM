@@ -6,8 +6,9 @@ from rpc import RL_pb2_grpc
 from threading import Lock
 from rpc.RL_pb2 import Empty, IntMessage
 from server.util import Reservoir, Learner
-from server.networks import StrategyNetwork
-from config import LINEAR_CFR, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, MAX_TRAIN_BATCH_SIZE, OBS_SHAPE, N_BET_BUCKETS, N_EPOCHS
+from server.networks import PolicyNetwork
+from config import LINEAR_CFR, STRATEGY_LEARNING_RATE, STRATEGY_WEIGHT_DECAY, DCRM_MAX_TRAIN_BATCH_SIZE, OBS_SHAPE, N_BET_BUCKETS, \
+    N_DCRM_EPOCHS, DCRM_RESERVOIR_SIZE
 
 
 class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
@@ -16,11 +17,11 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         logging.info('Strategy learner using device %s' % self.device)
         super(StrategyLearner, self).__init__(self.device)
         self.strategy_lock = Lock()
-        self.strategy_reservoir = Reservoir(save_weights=LINEAR_CFR)
+        self.strategy_reservoir = Reservoir(size=DCRM_RESERVOIR_SIZE, save_weights=LINEAR_CFR)
         self.strategy_iterations = 0
 
         self.gpu_lock = gpu_lock
-        self.strategy_net = StrategyNetwork(self.device).to(self.device)
+        self.strategy_net = PolicyNetwork(self.device).to(self.device)
         self.strategy_optimizer_fn = torch.optim.Adam
         self.strategy_scheduler_fn = torch.optim.lr_scheduler.OneCycleLR
         self.strategy_loss = torch.nn.KLDivLoss(reduction='batchmean')
@@ -85,7 +86,8 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         self.strategy_net.load_state_dict(torch.load('states/strategy/strategy_net_%d' % self.strategy_iterations))
         optimizer = self.strategy_optimizer_fn(self.strategy_net.parameters(), lr=STRATEGY_LEARNING_RATE, weight_decay=STRATEGY_WEIGHT_DECAY)
         scheduler = self.strategy_scheduler_fn(optimizer=optimizer, max_lr=STRATEGY_LEARNING_RATE, total_steps=None,
-                                               epochs=int(N_EPOCHS), steps_per_epoch=MAX_TRAIN_BATCH_SIZE, pct_start=0.3,
+                                               epochs=int(N_DCRM_EPOCHS),
+                                               steps_per_epoch=int(len(train_indices) / DCRM_MAX_TRAIN_BATCH_SIZE)+1, pct_start=0.3,
                                                anneal_strategy='cos', cycle_momentum=True,
                                                base_momentum=0.85, max_momentum=0.95, div_factor=25.0,
                                                final_div_factor=1000.0, last_epoch=-1)
@@ -98,8 +100,8 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         weights = None
         if LINEAR_CFR:
             weights = self.strategy_reservoir.weights
-        self._training_loop(self.strategy_net, optimizer, self.strategy_loss, obs, obs_count, actions, bets, train_indices,
-                            validation_indices, scheduler, 'iter', iteration, weights)
+        self._training_loop(N_DCRM_EPOCHS, DCRM_MAX_TRAIN_BATCH_SIZE, self.strategy_net, optimizer, self.strategy_loss, obs, obs_count,
+                            actions, bets, train_indices, validation_indices, scheduler, 'iter', iteration, weights)
         self.strategy_iterations += 1
         torch.save(self.strategy_net.state_dict(), 'states/strategy/strategy_net_%d' % self.strategy_iterations)
         #self.strategy_net.to('cpu')
