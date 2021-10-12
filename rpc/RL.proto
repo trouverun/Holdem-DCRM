@@ -115,7 +115,7 @@ service EvalMCTS {
 }
 
 service Master {
-    rpc RequestTraversal(Empty) returns (IntMessage);
+    rpc RequestTraversals(IntMessage) returns (IntMessage);
     rpc ExitTraversalPool(Empty) returns (Empty);
     // PPO Eval
     rpc GetPPOTableInstance(Empty) returns (TableMessage);

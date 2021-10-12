@@ -45,11 +45,8 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
                     i -= 1
                 break
 
-        if i == 0:
-            torch.save(self.strategy_net.state_dict(), 'states/strategy/strategy_net_0')
-
         self.strategy_iterations = i
-        base_path = 'reservoirs/'
+        base_path = 'reservoirs/strategy/'
         success = self.strategy_reservoir.load_from_disk(base_path + 'sample_count.npy', base_path + 'obs.npy',
                                                          base_path + 'obs_count.npy', base_path + 'actions.npy', base_path + 'bets.npy')
         if success:
@@ -57,6 +54,7 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         else:
             logging.info("Failed to recover strategy reservoir")
             self.strategy_iterations = 0
+            # TODO: delete the remaining strategy weight dicts
 
         logging.info("Starting from strategy iteration %d" % self.strategy_iterations)
 
@@ -107,7 +105,7 @@ class StrategyLearner(RL_pb2_grpc.StrategyLearnerServicer, Learner):
         #self.strategy_net.to('cpu')
         torch.cuda.empty_cache()
         self.gpu_lock.release()
-        base_path = 'reservoirs/'
+        base_path = 'reservoirs/strategy/'
         self.strategy_reservoir.save_to_disk(base_path + 'sample_count.npy', base_path + 'obs.npy', base_path + 'obs_count.npy',
                                              base_path + 'actions.npy', base_path + 'bets.npy')
         self.strategy_lock.release()

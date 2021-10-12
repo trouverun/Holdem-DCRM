@@ -4,7 +4,7 @@ from pokerenv.table import Table
 # -------------------------------------- GENERAL ---------------------------------------
 N_PLAYERS = 2
 N_ITERATIONS = 25
-K = 10
+K = 10000
 
 # --------------------------------------- WORKERS ----------------------------------------
 MASTER_HOST = 'localhost:50040'
@@ -42,24 +42,25 @@ MAX_EPISODE_LENGTH = 25
 SEQUENCE_LENGTH = 5                                              # How many previous observations are fed to RNN networks
 
 # ----------------------------------------- DCRM -----------------------------------------
+ROBUST_SAMPLING_EPSILON = 0.6
+ROBUST_SAMPLING_K = 3
 N_TRAVERSE_PROCESSES = 5
 N_TRAVERSE_QUE_PROCESS = 2
 N_CONC_TRAVERSALS_PER_PROCESS = 1
-CLIENT_SAMPLES_MIN_BATCH_SIZE = 512
-EXTERNAL_SAMPLING = True
-OUTCOME_SAMPLING_EPSILON = 0.6
+CLIENT_SAMPLES_MIN_BATCH_SIZE = 1024
 
 
 # ------------------------------------- EVAL GENERAL -------------------------------------
+EVAL_FREQUENCY = 3
 N_LOGGED_HANDS = 100                                             # How many hand histories are recorded per eval iteration
-USE_PPO_EVALUATION = False
+USE_PPO_EVALUATION = True
 STUPID_MCTS = True
-EVAL_CONSIDER_SINGLE_TRAJECTORY = True                           # Consider only a single set of table cards for each evaluation hand
+EVAL_CONSIDER_SINGLE_TRAJECTORY = False                          # Consider only a single set of table cards for each evaluation hand
 
 
 # ----------------------------------------- PPO ------------------------------------------
-N_PPO_EVAL_PROCESSES = 6
-N_PPO_EVAL_QUE_PROCESSES = 1
+N_PPO_EVAL_PROCESSES = 5
+N_PPO_EVAL_QUE_PROCESSES = 2
 N_CONC_PPO_EVALUATIONS_PER_PROCESS = 512
 PPO_EVAL_TRAJECTORY_SAMPLES_MIN_BATCH_SIZE = 10*1024
 PPO_EVAL_REWARD_SAMPLES_MIN_BATCH_SIZE = 512
@@ -70,14 +71,14 @@ DISCOUNT_RATE = 0.95                                             # Discount rate
 EVAL_PERMISSION_WAIT_TIME = 1                                    # How long to wait for before checking for permission to run evaluations
 
 # ------------------------------ APPROXIMATE EXPLOITABILITY ------------------------------
-N_MCTS_PROCESSES = 6
+N_MCTS_PROCESSES = 7
 INITIAL_VALUE = 1                                                # What value each state is initialized to
 PB_C_BASE = 19652
 PB_C_INIT = 1.25
 DIRICHLET_ALPHA = 0.3
 EXPLORATION_FRACTION = 0.25
-N_MCTS_EVAL_HANDS = 5
-N_MONTE_CARLO_SIMS = 200
+N_MCTS_EVAL_HANDS = 500
+N_MONTE_CARLO_SIMS = 500
 
 # ---------------------------------------- SERVER ----------------------------------------
 N_THREADPOOL_WORKERS = 8
@@ -96,12 +97,12 @@ MCTS_MAX_INFERENCE_BATCH_SIZE = 1024*5                           # Batch size fo
 MCTS_MIN_TRAIN_BATCH_SIZE = 1024*10                              # Min fresh samples before triggering training
 MCTS_MAX_TRAIN_BATCH_SIZE = 1024*10                              # Batch size when training networks
 MCTS_BATCH_PROCESS_TIMEOUT = 0.5                                 # Timeout duration before a batch is processed even if it is not full
-MCTS_TRAINING_TIMEOUT = 30                                       # How long to wait after data is added, before training
+MCTS_TRAINING_TIMEOUT = 60                                       # How long to wait after data is added, before training
 
 # PPO
 PPO_EXPERIENCE_BUFFER_SIZE = int(1e5)
 PPO_MAX_INFERENCE_BATCH_SIZE = 1024*5                           # Batch size for inferring regrets or strategies
-PPO_MAX_TRAIN_BATCH_SIZE = 1024*5                               # Batch size when training networks
+PPO_MAX_TRAIN_BATCH_SIZE = 1024*10                              # Batch size when training networks
 PPO_BATCH_PROCESS_TIMEOUT = 0.5                                 # Timeout duration before a batch is processed even if it is not full
 PPO_TRAINING_TIMEOUT = 5
 PPO_CLIP_VALUE = 0.1
@@ -114,19 +115,19 @@ improvement_eps = 1.05
 # DCRM
 N_DCRM_EPOCHS = 50
 DCRM_RNN_HIDDENS = 2048
-REGRET_LEARNING_RATE = 0.001
-STRATEGY_LEARNING_RATE = 0.001
+REGRET_LEARNING_RATE = 0.01
+STRATEGY_LEARNING_RATE = 0.01
 REGRET_WEIGHT_DECAY = 0.001
-STRATEGY_WEIGHT_DECAY = 0.001
+STRATEGY_WEIGHT_DECAY = 0.0001
 
 # MCTS
 N_MCTS_EPOCHS = 50
-MCTS_RNN_HIDDENS = 1024
-VALUE_P_LEARNING_RATE = 0.001
-VALUE_P_WEIGHT_DECAY = 0.001
+MCTS_RNN_HIDDENS = 2048
+VALUE_P_LEARNING_RATE = 0.01
+VALUE_P_WEIGHT_DECAY = 0.0001
 
 # PPO
-N_PPO_EPOCHS = 50
+N_PPO_EPOCHS = 75
 PPO_RNN_HIDDENS = 1024
 ACTOR_LEARNING_RATE = 0.0004
 ACTOR_WEIGHT_DECAY = 0.0001

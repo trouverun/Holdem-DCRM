@@ -93,6 +93,8 @@ class Server:
                 os.makedirs('states/value_p')
         if 'reservoirs' not in dirs:
             os.makedirs('reservoirs')
+        if 'strategy' not in os.listdir('reservoirs'):
+            os.makedirs('reservoirs/strategy')
 
         reg_readies = []
         strat_ready = None

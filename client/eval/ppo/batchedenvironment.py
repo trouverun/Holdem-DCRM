@@ -75,14 +75,13 @@ class BatchedEnvironment:
 
     def _reset_env(self, env_i):
         self.observation_counts[env_i] = np.zeros(N_PLAYERS, dtype=np.int32)
+        self.final_rewards[env_i] = np.zeros(N_PLAYERS, dtype=np.float32)
         if self.training_mode:
             self.observations[env_i] = np.zeros([N_PLAYERS, MAX_EPISODE_LENGTH, OBS_SHAPE], dtype=np.float32)
             self.action_probabilities[env_i] = np.zeros([N_PLAYERS, MAX_EPISODE_LENGTH, 2], dtype=np.float32)
             self.bet_probabilities[env_i] = np.zeros([N_PLAYERS, MAX_EPISODE_LENGTH, 2], dtype=np.float32)
-            self.final_rewards[env_i] = np.zeros(N_PLAYERS, dtype=np.float32)
         else:
             self.observations[env_i] = np.zeros([N_PLAYERS, SEQUENCE_LENGTH, OBS_SHAPE], dtype=np.float32)
-            self.final_rewards[env_i] = 0
         self.envs[env_i] = deepcopy(self.initial_env)
         if not EVAL_CONSIDER_SINGLE_TRAJECTORY:
             rshuffle(self.envs[env_i].deck.cards)
@@ -93,31 +92,30 @@ class BatchedEnvironment:
         obs_sequence, obs_count = self._append_obs(env_i, acting_player, self.initial_obs)
         return obs_sequence, obs_count, acting_player
 
-    def _finish_env(self, env_i):
+    def _finish_env(self, env_i, ppo_reward):
         if self.training_mode:
-            for player_i in range(N_PLAYERS):
-                if player_i == self.ppo_player:
-                    observations = []
-                    obs_counts = []
-                    action_probabilities = []
-                    bet_probabilities = []
-                    rewards = []
-                    player_observation_count = self.observation_counts[env_i, player_i]
-                    idxs = np.arange(player_observation_count)
-                    discounts = np.power(DISCOUNT_RATE, idxs)
-                    for obs_count in range(1, player_observation_count+1):
-                        start_i = max(0, obs_count - SEQUENCE_LENGTH)
-                        n_select = min(obs_count, SEQUENCE_LENGTH)
-                        data = self.observations[env_i, player_i, start_i:start_i + n_select]
-                        if obs_count < SEQUENCE_LENGTH:
-                            padding = np.zeros([SEQUENCE_LENGTH - obs_count, OBS_SHAPE])
-                            data = np.concatenate([data, padding])
-                        observations.append(data)
-                        action_probabilities.append(self.action_probabilities[env_i, player_i, obs_count])
-                        bet_probabilities.append(self.bet_probabilities[env_i, player_i, obs_count])
-                        rewards.append(discounts[obs_count-1]*self.final_rewards[env_i, player_i])
-                        obs_counts.append(SEQUENCE_LENGTH if obs_count >= SEQUENCE_LENGTH else obs_count)
-                    self.trajectory_que.put((observations, obs_counts, action_probabilities, bet_probabilities, rewards))
+            observations = []
+            obs_counts = []
+            action_probabilities = []
+            bet_probabilities = []
+            rewards = []
+            player_observation_count = self.observation_counts[env_i, self.ppo_player]
+            idxs = np.flip(np.arange(player_observation_count))
+            discounts = np.power(DISCOUNT_RATE, idxs)
+            discounted_rewards = discounts*ppo_reward
+            for obs_count in range(1, player_observation_count+1):
+                start_i = max(0, obs_count - SEQUENCE_LENGTH)
+                n_select = min(obs_count, SEQUENCE_LENGTH)
+                data = self.observations[env_i, self.ppo_player, start_i:start_i + n_select]
+                if obs_count < SEQUENCE_LENGTH:
+                    padding = np.zeros([SEQUENCE_LENGTH - obs_count, OBS_SHAPE])
+                    data = np.concatenate([data, padding])
+                observations.append(data)
+                action_probabilities.append(self.action_probabilities[env_i, self.ppo_player, obs_count])
+                bet_probabilities.append(self.bet_probabilities[env_i, self.ppo_player, obs_count])
+                rewards.append(discounted_rewards[obs_count-1])
+                obs_counts.append(SEQUENCE_LENGTH if obs_count >= SEQUENCE_LENGTH else obs_count)
+            self.trajectory_que.put((observations, obs_counts, action_probabilities, bet_probabilities, rewards))
         else:
             self.evaluated_player_reward_que.put(self.final_rewards[env_i].mean())
         return self._reset_env(env_i)
@@ -164,48 +162,28 @@ class BatchedEnvironment:
         reset_envs = []
         for env_i in self.enabled_envs:
             table = self.envs[env_i]
-            if env_i in mappings.keys():
-                ap = action_preds[mappings[env_i][0]][mappings[env_i][1]]
-                bp = bet_preds[mappings[env_i][0]][mappings[env_i][1]]
-            else:
-                # If env_i is not in the mappings keys,
-                # the env is asking for don't care actions to flush out final rewards for each remaining player
-                ap = -inf*np.ones(N_ACTIONS)
-                ap[0] = 0
-                bp = np.zeros(N_BET_BUCKETS)
+            ap = action_preds[mappings[env_i][0]][mappings[env_i][1]]
+            bp = bet_preds[mappings[env_i][0]][mappings[env_i][1]]
             obs = self.active_observations[env_i]
             previous_acting_player = int(obs[indices.ACTING_PLAYER])
             action = self._get_table_action(env_i, obs, previous_acting_player, ap, bp)
-            obs, reward, env_done, info = table.step(action)
+            obs, reward, done, _ = table.step(action)
 
-            if self.training_mode:
-                done = env_done
+            if done:
+                for player in range(N_PLAYERS):
+                    if player != self.ppo_player:
+                        self.final_rewards[env_i, player] = -reward[player]
+                obs_sequence, obs_count, acting_player = self._finish_env(env_i, reward[self.ppo_player])
+                inference_observations[acting_player].append(obs_sequence)
+                inference_observation_counts[acting_player].append(obs_count)
+                new_mappings[env_i] = [acting_player, len(inference_observations[acting_player]) - 1]
+                reset_envs.append(env_i)
             else:
-                done = False
-
-            # Only record observations if they correspond to a valid decision-making point,
-            # rather than final reward collection with don't care actions
-            if not obs[indices.HAND_IS_OVER]:
                 acting_player = int(obs[indices.ACTING_PLAYER])
                 obs_sequence, obs_count = self._append_obs(env_i, acting_player, obs)
                 inference_observations[acting_player].append(obs_sequence)
                 inference_observation_counts[acting_player].append(obs_count)
                 new_mappings[env_i] = [acting_player, len(inference_observations[acting_player]) - 1]
-                continue
-            else:
-                self.active_observations[env_i] = obs
-                if self.training_mode:
-                    self.final_rewards[env_i, previous_acting_player] = reward
-                else:
-                    if previous_acting_player != self.ppo_player:
-                        self.final_rewards[env_i, previous_acting_player] = -reward
-                        done = True
-            if done:
-                obs_sequence, obs_count, acting_player = self._finish_env(env_i)
-                inference_observations[acting_player].append(obs_sequence)
-                inference_observation_counts[acting_player].append(obs_count)
-                new_mappings[env_i] = [acting_player, len(inference_observations[acting_player]) - 1]
-                reset_envs.append(env_i)
 
         return inference_observations, inference_observation_counts, new_mappings, reset_envs
 

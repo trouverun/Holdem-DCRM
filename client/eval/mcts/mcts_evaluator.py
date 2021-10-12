@@ -14,7 +14,6 @@ import math
 import numpy as np
 import grpc
 import os
-import logging
 
 simulated_player = 0
 
@@ -28,7 +27,7 @@ def run_evaluations(eval_iteration):
     eval_stub = EvalMCTSStub(eval_channel)
     if 'iteration_%d' % eval_iteration not in os.listdir('mcts_hands'):
         os.makedirs('mcts_hands/iteration_%d/' % eval_iteration)
-    table = Table(N_PLAYERS, player_names=['best_response', 'DCRM policy'], hand_history_location='mcts_hands/iteration_%d/' % eval_iteration)
+    table = Table(N_PLAYERS, player_names={0: 'best_response', 1: 'DCRM policy'}, track_single_player=True, hand_history_location='mcts_hands/iteration_%d/' % eval_iteration)
     agents = {i: PolicyAgent() for i in range(1, N_PLAYERS)}
     agents[simulated_player] = MonteCarloAgent()
     while True:
@@ -50,10 +49,11 @@ def run_evaluations(eval_iteration):
                 other_observations = [a.observations for k, a in agents.items()]
                 other_observation_counts = [a.obs_count for k, a in agents.items()]
                 table_action = agents[acting_player].get_action(table, obs, other_observations, other_observation_counts, strategy_stubs, eval_stub)
-            obs, reward, env_done, _ = table.step(table_action)
-            if obs[indices.HAND_IS_OVER] and acting_player != simulated_player:
-                rewards[acting_player] = reward
-            if env_done:
+            obs, reward, done, _ = table.step(table_action)
+            if done:
+                for player in range(N_PLAYERS):
+                    if player != simulated_player:
+                        rewards[player] = reward[player]
                 for key, agent in agents.items():
                     agent.reset()
                 master_stub.AddMCTSExploitabilitySample(FloatMessage(value=-rewards.mean()))
@@ -111,25 +111,22 @@ class PolicyAgent(Agent):
         super(PolicyAgent, self).__init__(initial_obs, initial_obs_count)
 
     def get_action(self, strategy_stub, obs):
-        if not obs[indices.HAND_IS_OVER]:
-            self.obs_count = min(self.obs_count + 1, SEQUENCE_LENGTH)
-            self.append_obs(obs)
-            bet_sizes = get_bet_sizes(obs)
-            observations_bytes = np.ndarray.tobytes(np.asarray(self.observations, dtype=np.float32))
-            player_obs_count_bytes = np.ndarray.tobytes(np.expand_dims(np.asarray(self.obs_count, dtype=np.int32), 0))
-            obs_proto = Observation(player=int(obs[indices.ACTING_PLAYER]), observations=observations_bytes,
-                                    observation_counts=player_obs_count_bytes, shape=1, sequence_length=SEQUENCE_LENGTH)
-            response = strategy_stub.GetStrategies(obs_proto)
-            action_pred = np.frombuffer(response.action_prediction, dtype=np.float32).reshape(N_ACTIONS)
-            bet_pred = np.frombuffer(response.bet_prediction, dtype=np.float32).reshape(N_BET_BUCKETS)
-            action = np.random.choice(action_list, p=np.exp(action_pred))
-            action = action_list[action]
-            bet_size = 0
-            if action == PlayerAction.BET:
-                bet_size = np.random.choice(bet_sizes, p=np.exp(bet_pred))
-            table_action = Action(action, bet_size)
-        else:
-            table_action = Action(PlayerAction.CHECK, 0)
+        self.obs_count = min(self.obs_count + 1, SEQUENCE_LENGTH)
+        self.append_obs(obs)
+        bet_sizes = get_bet_sizes(obs)
+        observations_bytes = np.ndarray.tobytes(np.asarray(self.observations, dtype=np.float32))
+        player_obs_count_bytes = np.ndarray.tobytes(np.expand_dims(np.asarray(self.obs_count, dtype=np.int32), 0))
+        obs_proto = Observation(player=int(obs[indices.ACTING_PLAYER]), observations=observations_bytes,
+                                observation_counts=player_obs_count_bytes, shape=1, sequence_length=SEQUENCE_LENGTH)
+        response = strategy_stub.GetStrategies(obs_proto)
+        action_pred = np.frombuffer(response.action_prediction, dtype=np.float32).reshape(N_ACTIONS)
+        bet_pred = np.frombuffer(response.bet_prediction, dtype=np.float32).reshape(N_BET_BUCKETS)
+        action = np.random.choice(action_list, p=np.exp(action_pred))
+        action = action_list[action]
+        bet_size = 0
+        if action == PlayerAction.BET:
+            bet_size = np.random.choice(bet_sizes, p=np.exp(bet_pred))
+        table_action = Action(action, bet_size)
         return table_action
 
 
@@ -138,13 +135,10 @@ class MonteCarloAgent(Agent):
         super(MonteCarloAgent, self).__init__(initial_obs, initial_obs_count)
 
     def get_action(self, table, obs, others_observation_sequences, others_observation_counts, strategy_stubs, eval_stub):
-        if not obs[indices.HAND_IS_OVER]:
-            self.append_obs(obs)
-            all_observation_sequences = [self.observations.copy()] + others_observation_sequences
-            all_observation_counts = [self.obs_count] + others_observation_counts
-            table_action = run_mcts_simulations(N_MONTE_CARLO_SIMS, table, obs, all_observation_sequences, all_observation_counts, strategy_stubs, eval_stub)
-        else:
-            table_action = Action(PlayerAction.CHECK, 0)
+        self.append_obs(obs)
+        all_observation_sequences = [self.observations.copy()] + others_observation_sequences
+        all_observation_counts = [self.obs_count] + others_observation_counts
+        table_action = run_mcts_simulations(N_MONTE_CARLO_SIMS, table, obs, all_observation_sequences, all_observation_counts, strategy_stubs, eval_stub)
         return table_action
 
 
@@ -169,15 +163,10 @@ def get_state_value_p_prediction(eval_stub, obs_proto):
     return value, action_prior, bet_prior
 
 
-def uniform_expand():
-    pass
-
-
 def run_mcts_simulations(n_simulations, table, current_obs, all_observation_sequences, all_obs_counts, strategy_stubs, eval_stub):
     root = Node(0, 0)
     for n in range(n_simulations):
         obs = current_obs.copy()
-        action_dont_care = obs[indices.HAND_IS_OVER]
         table_clone = fast_deep_copy(table)#deepcopy(table)
         table_clone.hand_history_enabled = False
         if not EVAL_CONSIDER_SINGLE_TRAJECTORY:
@@ -194,33 +183,29 @@ def run_mcts_simulations(n_simulations, table, current_obs, all_observation_sequ
         final_reward = None
         while True:
             bet_sizes = get_bet_sizes(obs)
-            if not action_dont_care:
-                if acting_player != simulated_player:
-                    table_action = agents[acting_player].get_action(strategy_stubs[acting_player], obs)
-                else:
-                    # If the node has not been expanded (traversed through) yet:
-                    if node.children is None:
-                        action_prior = np.full(N_ACTIONS, 1/N_ACTIONS)
-                        bet_prior = np.full(N_BET_BUCKETS, 1/N_BET_BUCKETS)
-                        if not STUPID_MCTS:
-                            # Update the node average value and action/bet priori based on a value_p network prediction:
-                            obs_proto = construct_obs_proto(acting_player, inference_observation_sequence, inference_observation_count)
-                            value, action_prior, bet_prior = get_state_value_p_prediction(eval_stub, obs_proto)
-                        # Create all the child nodes (all possible actions from this node):
-                        node.children = {}
-                        node.expand_children(action_prior, bet_prior)
-                        if node == root:
-                            add_exploration_noise(node)
-                        if not STUPID_MCTS:
-                            break
-                    search_path.append(node)
-                    action, node = select_child(node, obs)
-                    table_action = Action(action_list[action[0]], bet_sizes[action[1]])
+            if acting_player != simulated_player:
+                table_action = agents[acting_player].get_action(strategy_stubs[acting_player], obs)
             else:
-                table_action = Action(PlayerAction.CHECK, 0)
+                # If the node has not been expanded (traversed through) yet:
+                if node.children is None:
+                    action_prior = np.full(N_ACTIONS, 1/N_ACTIONS)
+                    bet_prior = np.full(N_BET_BUCKETS, 1/N_BET_BUCKETS)
+                    if not STUPID_MCTS:
+                        # Update the node average value and action/bet priori based on a value_p network prediction:
+                        obs_proto = construct_obs_proto(acting_player, inference_observation_sequence, inference_observation_count)
+                        value, action_prior, bet_prior = get_state_value_p_prediction(eval_stub, obs_proto)
+                    # Create all the child nodes (all possible actions from this node):
+                    node.children = {}
+                    node.expand_children(action_prior, bet_prior)
+                    if node == root:
+                        add_exploration_noise(node)
+                    if not STUPID_MCTS:
+                        break
+                search_path.append(node)
+                action, node = select_child(node, obs)
+                table_action = Action(action_list[action[0]], bet_sizes[action[1]])
 
-            obs, reward, _, _ = table_clone.step(table_action)
-            done = obs[indices.HAND_IS_OVER] and acting_player == simulated_player
+            obs, reward, done, _ = table_clone.step(table_action)
             # We are done once the simulated player receives a final reward
             if done:
                 if not STUPID_MCTS:
@@ -228,14 +213,13 @@ def run_mcts_simulations(n_simulations, table, current_obs, all_observation_sequ
                     obs_proto = construct_obs_proto(acting_player, inference_observation_sequence, inference_observation_count)
                     value, _, _ = get_state_value_p_prediction(eval_stub, obs_proto)
                     # Save the final reward to train the value_p network
-                    final_reward = reward
+                    final_reward = reward[simulated_player]
                 else:
                     value = reward
                 break
             else:
                 acting_player = int(obs[indices.ACTING_PLAYER])
-                action_dont_care = obs[indices.HAND_IS_OVER]
-                if acting_player == simulated_player and not action_dont_care:
+                if acting_player == simulated_player:
                     # For valid action points, update the simulated player inference sequence and trajectory
                     new_obs_count = update_obs_sequence(inference_observation_sequence, obs, inference_observation_count)
                     inference_observation_count = new_obs_count
@@ -319,7 +303,6 @@ def select_child(node, obs):
     ucb_scores = [(ucb_score(node, child), action, child) for action, child in node.children.items() if valid_actions[action[0]] and valid_bets[action[1]]]
     rshuffle(ucb_scores)
     _, action, child = max(ucb_scores, key=itemgetter(0))
-
     return action, child
 
 

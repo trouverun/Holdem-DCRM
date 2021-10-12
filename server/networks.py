@@ -37,6 +37,7 @@ class RegretNetwork(torch.nn.Module):
         bet_regret = self.bet_regret(x)
 
         # Give 0 regret to all bet sizes that are outside of the valid range
+        # TODO: default bets [bucket = 0,1,2] may still be 'valid'?
         action_regret = torch.where(invalid_actions, torch.zeros_like(action_regret), action_regret)
         betsize_array = torch.tensor(BET_BUCKETS)
         betsize_array = betsize_array.repeat((x.shape[0], 1)).to(self.device)

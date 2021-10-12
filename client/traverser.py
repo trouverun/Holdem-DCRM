@@ -3,7 +3,7 @@ import gc
 import numpy as np
 import logging
 from rpc.RL_pb2_grpc import ActorStub, RegretLearnerStub, StrategyLearnerStub, MasterStub
-from rpc.RL_pb2 import Observation, SampledData, Empty
+from rpc.RL_pb2 import Observation, SampledData, Empty, IntMessage
 from client.batchedtraversal import BatchedTraversal
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
@@ -84,27 +84,26 @@ def traverse_process(traversals_per_process, traverser, regret_que, strategy_que
     master_channel = grpc.insecure_channel(MASTER_HOST, options)
     master_stub = MasterStub(master_channel)
     channels = {host: grpc.insecure_channel(host, options) for host in ACTOR_HOST_PLAYER_MAP.keys()}
-    bt = BatchedTraversal(traversals_per_process, traverser, regret_que, strategy_que)
-    while True:
-        response = master_stub.RequestTraversal(Empty())
-        if response.value == -1:
-            master_stub.ExitTraversalPool(Empty())
-            break
-        obs, obs_counts, mapping = bt.reset()
-        while True:
-            n_items = 0
-            for player in range(N_PLAYERS):
-                n_items += len(obs[player])
-            if n_items == 0:
-                break
-            with ThreadPoolExecutor(max_workers=N_PLAYERS) as executor:
-                player_channels = [channels[PLAYER_ACTOR_HOST_MAP[player]] for player in range(N_PLAYERS)]
-                arg = list(zip(player_channels, list(range(N_PLAYERS)), obs, obs_counts, ['regret'] * N_PLAYERS))
-                result = executor.map(send_player_inference_batch, arg)
-            action_regrets = [np.empty(0) for _ in range(N_PLAYERS)]
-            bet_regrets = [np.empty(0) for _ in range(N_PLAYERS)]
-            for player, regrets in enumerate(result):
-                ar, br = regrets
-                action_regrets[player] = ar
-                bet_regrets[player] = br
-            obs, obs_counts, mapping = bt.step(action_regrets, bet_regrets, mapping)
+    bt = BatchedTraversal(traverser, regret_que, strategy_que)
+    response = master_stub.RequestTraversals(IntMessage(value=traversals_per_process))
+    granted_traversals = response.value
+    obs, obs_counts, mapping = bt.reset(granted_traversals)
+    active_traversals = granted_traversals
+    while active_traversals > 0:
+        with ThreadPoolExecutor(max_workers=N_PLAYERS) as executor:
+            player_channels = [channels[PLAYER_ACTOR_HOST_MAP[player]] for player in range(N_PLAYERS)]
+            arg = list(zip(player_channels, list(range(N_PLAYERS)), obs, obs_counts, ['regret'] * N_PLAYERS))
+            result = executor.map(send_player_inference_batch, arg)
+        action_regrets = [np.empty(0) for _ in range(N_PLAYERS)]
+        bet_regrets = [np.empty(0) for _ in range(N_PLAYERS)]
+        for player, regrets in enumerate(result):
+            ar, br = regrets
+            action_regrets[player] = ar
+            bet_regrets[player] = br
+        obs, obs_counts, mapping, finished = bt.step(action_regrets, bet_regrets, mapping)
+        if finished > 0:
+            response = master_stub.RequestTraversals(IntMessage(value=finished))
+            granted_traversals = response.value
+            active_traversals -= (finished - granted_traversals)
+            obs, obs_counts, mapping = bt.reset(granted_traversals, False, obs, obs_counts, mapping)
+    master_stub.ExitTraversalPool(Empty())
